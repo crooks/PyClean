@@ -1,0 +1,3 @@
+PyClean.py - A Usenet spamfilter intended for use with the INN2 server.
+
+PyClean performs a similar role to the original Perl-based Cleanfeed.
