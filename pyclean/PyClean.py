@@ -146,6 +146,7 @@ class pyclean():
         self.groups = Groups.Groups()
 
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
+        self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
 
         # Set up the EMP filters
         self.emp_body = emp.EMP(dofuzzy=True, name='emp_body')
@@ -161,10 +162,15 @@ class pyclean():
         if timing.now() > self.timed_reload:
             self.timed_events()
 
-        # Try to establish the posting host
+        # Try to establish the posting host and posting account
         ph = None
-        logging.debug('Injection-Info: %s' % art[Injection_Info])
+        pa = None
         if art[Injection_Info] is not None:
+            ispa = self.regex_pa.search(art[Injection_Info])
+            if ispa:
+                pa = ispa.group(1)
+                logging.debug('Posting-Account: %s' % pa)
+
             isph = self.regex_ph.search(art[Injection_Info])
             if isph:
                 ph = isph.group(1)
@@ -172,9 +178,12 @@ class pyclean():
             ph = str(art[NNTP_Posting_Host])
         # Ascertain if this posting-host is meaningful
         if ph is not None:
+            logging.debug('Posting-Host: %s' % ph)
             bad_ph = self.groups.regex.bad_ph.search(ph)
         else:
             bad_ph = False
+        if bad_ph:
+            logging.debug('Bad posting host: %s' % ph)
 
         # Compare headers against bad_ files
         if self.bad_groups:
@@ -201,12 +210,20 @@ class pyclean():
             if art[__BODY__] is not None:
                 if self.emp_body.add(art[__BODY__]):
                     return self.reject("EMP Body Reject", art)
-            if ph is not None:
+            # If a Posting-Account is known, it makes better filter fodder
+            # than the hostname/address which could be dynamic.
+            if pa is not None:
+                fodder = pa
+            elif ph is not None:
+                fodder = ph
+            else:
+                fodder = None
+            if fodder:
                 # Beginning of PHN filter
-                if self.emp_phn.add(ph + str(art[Newsgroups])):
+                if self.emp_phn.add(fodder + str(art[Newsgroups])):
                     return self.reject("EMP PHN Reject", art)
                 # Beginning of PHL filter
-                if self.emp_phl.add(ph + str(art[__LINES__])):
+                if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject("EMP PHL Reject", art)
             # Beginning of FSL filter
             fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
@@ -226,6 +243,7 @@ class pyclean():
             self.logart(reason, art, 'emp.body')
         if reason.startswith('Bad'):
             self.logart(reason, art, 'bad_files')
+        logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
     def logart(self, reason, art, filename):
@@ -242,7 +260,7 @@ class pyclean():
         f.close
 
     def timed_events(self):
-        logging.info('Performing timed events')
+        logging.debug('Performing timed events')
         self.emp_body.statlog()
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
