@@ -46,13 +46,6 @@ config = ConfigParser.RawConfigParser()
 config.add_section('paths')
 homedir = os.path.expanduser('~')
 
-# Logging
-config.add_section('logging')
-config.set('logging', 'level', 'info')
-config.set('logging', 'format', '%(asctime)s %(levelname)s %(message)s')
-config.set('logging', 'datefmt', '%Y-%m-%d %H:%M:%S')
-config.set('logging', 'retain', 7)
-
 # Define the basedir for pyclean.  By default this will be ~/pyclean
 basedir = os.path.join(homedir, 'pyclean')
 makedir(basedir)
@@ -68,6 +61,17 @@ if 'PYCLEANLOG' in os.environ:
 else:
     config.set('paths', 'log', os.path.join(basedir, 'log'))
 makedir(config.get('paths', 'log'))
+
+# Logging
+config.add_section('logging')
+config.set('logging', 'level', 'info')
+config.set('logging', 'format', '%(asctime)s %(levelname)s %(message)s')
+config.set('logging', 'datefmt', '%Y-%m-%d %H:%M:%S')
+config.set('logging', 'retain', 7)
+
+# Binary
+config.add_section('binary')
+config.set('binary', 'lines_allowed', 15)
 
 #with open('example.cfg', 'wb') as configfile:
 #    config.write(configfile)

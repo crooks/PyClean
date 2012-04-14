@@ -145,8 +145,14 @@ class pyclean():
         # Initialize Group Analizer
         self.groups = Groups.Groups()
 
+        # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
+        # Binaries
+        self.regex_yenc = re.compile('^=ybegin.*', re.M)
+        self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
+        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
+        self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
 
         # Set up the EMP filters
         self.emp_body = emp.EMP(dofuzzy=True, name='emp_body')
@@ -169,7 +175,7 @@ class pyclean():
             ispa = self.regex_pa.search(art[Injection_Info])
             if ispa:
                 pa = ispa.group(1)
-                logging.debug('Posting-Account: %s' % pa)
+                #logging.debug('Posting-Account: %s' % pa)
 
             isph = self.regex_ph.search(art[Injection_Info])
             if isph:
@@ -178,7 +184,7 @@ class pyclean():
             ph = str(art[NNTP_Posting_Host])
         # Ascertain if this posting-host is meaningful
         if ph is not None:
-            logging.debug('Posting-Host: %s' % ph)
+            #logging.debug('Posting-Host: %s' % ph)
             bad_ph = self.groups.regex.bad_ph.search(ph)
         else:
             bad_ph = False
@@ -204,6 +210,10 @@ class pyclean():
 
         # Analyze the Newsgroups header
         self.groups.analyze(art[Newsgroups])
+
+        if not self.groups['binary_allowed_bool']:
+            if self.binary(art):
+                return reject("Misplaced Binary")
 
         # Beginning of EMP Body filter
         if not self.groups['emp_exclude_bool']:
@@ -231,6 +241,29 @@ class pyclean():
                 return self.reject("EMP FSL Reject", art)
         # The article passed all checks. Return an empty string.
         return ""
+
+    def binary(self, art):
+        if self.regex_uuenc.search(art[__BODY__]):
+            return 'uuEnc'
+        yenc = self.regex_yenc.search(art[__BODY__])
+        if yenc:
+            # Extract the matching line
+            l = yenc.group(0)
+            if 'line=' in l and 'size=' in l and 'name=' in l:
+                return 'yEnc'
+        # Base64 and suspect binary matching
+        b64match = 0
+        suspect = 0
+        for line in str(art[__BODY__]).split('\n'):
+            if self.regex_base64.match(line):
+                b64match += 1
+            if self.regex_binary.match(line):
+                suspect += 1
+            if b64match > config.get('binary', 'lines_allowed'):
+                return 'base64'
+            if suspect > config.get('binary', 'lines_allowed'):
+                logging.info('Suspect binary: %s' % art[Message_ID])
+        return False
 
     def reject(self, reason, art):
         if reason.startswith('EMP PHN'):
