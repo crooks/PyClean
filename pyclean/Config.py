@@ -41,27 +41,6 @@ def makedir(d):
 # Configure the Config Parser.
 config = ConfigParser.RawConfigParser()
 
-# By default, all the paths are subdirectories of the homedir. We define the
-# actual paths after reading the config file as they're relative to basedir.
-config.add_section('paths')
-homedir = os.path.expanduser('~')
-
-# Define the basedir for pyclean.  By default this will be ~/pyclean
-basedir = os.path.join(homedir, 'pyclean')
-makedir(basedir)
-
-if 'PYCLEANETC' in os.environ:
-    config.set('paths', 'etc', os.environ['PYCLEANETC'])
-else:
-    config.set('paths', 'etc', os.path.join(basedir, 'etc'))
-makedir(config.get('paths', 'etc'))
-
-if 'PYCLEANLOG' in os.environ:
-    config.set('paths', 'log', os.environ['PYCLEANLOG'])
-else:
-    config.set('paths', 'log', os.path.join(basedir, 'log'))
-makedir(config.get('paths', 'log'))
-
 # Logging
 config.add_section('logging')
 config.set('logging', 'level', 'info')
@@ -73,9 +52,47 @@ config.set('logging', 'retain', 7)
 config.add_section('binary')
 config.set('binary', 'lines_allowed', 15)
 
-#with open('example.cfg', 'wb') as configfile:
-#    config.write(configfile)
-
+# The path section is a bit tricky. First off we try to read a default config
+# file.  This can define the path to everything, including the pyclean.cfg
+# config file.
+config.add_section('paths')
+# In accordance with Debian standards, we'll look for /etc/default/pyclean.
+# This file can define the path for pyclean's etc, which includes the
+# pyclean.cfg file.  The location of the default file can be overridden by
+# setting the 'PYCLEAN' environment variable.
+if 'PYCLEAN' in os.environ:
+    default = os.environ['PYCLEAN']
+else:
+    default = os.path.join('/', 'etc', 'default', 'pyclean')
+if os.path.isfile(default):
+    config.read(default)
+# By default, all the paths are subdirectories of the homedir.
+homedir = os.path.expanduser('~')
+# Define the basedir for pyclean.  By default this will be ~/pyclean
+basedir = os.path.join(homedir, 'pyclean')
+# If the default file hasn't specified an etc path, we need to assume a
+# default.  Usually /usr/local/news/pyclean/etc.
+if not config.has_option('paths', 'etc'):
+    config.set('paths', 'etc', os.path.join(basedir, 'etc'))
+    # At this point, we know the basedir is going to be required so we
+    # attempt to create it.
+    makedir(basedir)
+makedir(config.get('paths', 'etc'))
+# Under all circumstances, we now have an etc path.  Now to check
+# if the config file exists and if so, read it.
 configfile = os.path.join(config.get('paths', 'etc'), 'pyclean.cfg')
 if os.path.isfile(configfile):
     config.read(configfile)
+
+if not config.has_option('paths', 'log'):
+    config.set('paths', 'log', os.path.join(basedir, 'log'))
+    # As with the etc section above, we know basedir is required now. No
+    # harm in trying to create it multiple times.
+    makedir(basedir)
+makedir(config.get('paths', 'log'))
+
+# The following lines can be uncommented in order to write a config file. This
+# is useful for creating an example file.
+#with open('example.cfg', 'wb') as configfile:
+#    config.write(configfile)
+
