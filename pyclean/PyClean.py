@@ -250,6 +250,11 @@ class Filter():
             logging.info('Control article: %s' % art[Message_ID])
             return ''
 
+        # Newsguy are evil sex spammers
+        if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
+            'alt.sex' in str(art[Newsgroups])):
+            return self.reject("Newsguy Sex", art, post)
+
         # Compare headers against bad_ files
         if self.bad_groups:
             bg_result = self.bad_groups.search(art[Newsgroups])
@@ -394,7 +399,12 @@ class Filter():
         for hdr in post.keys():
             f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
-        f.write(art[__BODY__])
+        if art[__LINES__] <= config.get('logging', 'logart_maxlines'):
+            f.write(art[__BODY__])
+        else:
+            for line in str(art[__BODY__]).split('\n',
+                        config.get('logging', 'logart_maxlines'))[:-1]:
+                f.write(line + "\n")
         f.write('\n\n')
         f.close
 

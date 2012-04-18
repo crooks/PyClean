@@ -47,6 +47,7 @@ config.set('logging', 'level', 'info')
 config.set('logging', 'format', '%(asctime)s %(levelname)s %(message)s')
 config.set('logging', 'datefmt', '%Y-%m-%d %H:%M:%S')
 config.set('logging', 'retain', 7)
+config.set('logging', 'logart_maxlines', 50)
 
 # Binary
 config.add_section('binary')
