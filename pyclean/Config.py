@@ -52,6 +52,7 @@ config.set('logging', 'logart_maxlines', 50)
 # Binary
 config.add_section('binary')
 config.set('binary', 'lines_allowed', 15)
+config.set('binary', 'reject_all', 'false')
 
 # EMP
 config.add_section('emp')
@@ -77,6 +78,9 @@ config.set('emp', 'ihn_threshold', 3)
 config.set('emp', 'ihn_ceiling', 100)
 config.set('emp', 'ihn_maxentries', 1000)
 config.set('emp', 'ihn_timed_trim', 7200)
+
+config.add_section('control')
+config.set('control', 'reject_cancels', 'false')
 
 config.add_section('custom')
 config.set('custom', 'newsguy', 'true')

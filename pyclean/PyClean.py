@@ -247,8 +247,12 @@ class Filter():
 
         #TODO Control message handling still needs to be written
         if art[Control] is not None:
-            logging.info('Control: %s, mid=%s' % (art[Control],
-                                                 art[Message_ID]))
+            if (str(art[Control]).startswith('cancel') and
+              config.getboolean('control', 'reject_cancels')):
+                return self.reject("Control cancel", art, post)
+            else:
+                logging.info('Control: %s, mid=%s' % (art[Control],
+                                                      art[Message_ID]))
             return ''
 
         # Newsguy are evil sex spammers
@@ -292,7 +296,8 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        if not self.groups['binary_allowed_bool']:
+        if (not self.groups['binary_allowed_bool'] or
+            config.getbool('binary', 'reject_all')):
             if self.binary(art):
                 return self.reject("Misplaced Binary", art, post)
         # Misplaced HTML check
