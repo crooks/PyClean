@@ -73,7 +73,7 @@ class Regex():
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
         self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters
-        emp_exclude = ['^alt\.anonymous\.messages', '^free\.']
+        emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.']
         self.emp_exclude = self.regex_compile(emp_exclude)
         # Exclude groups from IHN filter
         ihn_exclude = ['alt\.anonymous', 'alt\.privacy']
