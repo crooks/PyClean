@@ -85,7 +85,7 @@ MIME_Version = intern("MIME-Version")
 Newsgroups = intern("Newsgroups")
 NNTP_Posting_Date = intern("NNTP-Posting-Date")
 NNTP_Posting_Host = intern("NNTP-Posting-Host")
-NNTP_Posting_Path  = intern("NNTP-Posting-Path")
+NNTP_Posting_Path = intern("NNTP-Posting-Path")
 Organization = intern("Organization")
 Original_Sender = intern("Original-Sender")
 Originator = intern("Originator")
@@ -132,6 +132,7 @@ Xref = intern("Xref")
 __BODY__ = intern("__BODY__")
 __LINES__ = intern("__LINES__")
 
+
 class pyclean():
     def __init__(self):
         """This runs every time the filter is loaded or reloaded.
@@ -153,92 +154,191 @@ class pyclean():
         self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
         self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
         self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
+        # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
+        self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
+        # Hostname - Not a 100% perfect regex but probably good enough.
+        hostname1 = '([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]+[a-zA-Z0-9])'
+        hostname2 = '(\.[a-zA-Z0-9\-]+)+'
+        self.regex_hostname = re.compile(hostname1 + hostname2)
 
         # Set up the EMP filters
-        self.emp_body = emp.EMP(dofuzzy=True, name='emp_body')
-        self.emp_phn = emp.EMP(name='emp_phn')
-        self.emp_phl = emp.EMP(name='emp.phl')
-        self.emp_fsl = emp.EMP(name='emp_fsl')
+        self.emp_body = emp.EMP(name='emp_body',
+                            threshold=config.getint('emp', 'body_threshold'),
+                            ceiling=config.getint('emp', 'body_ceiling'),
+                            maxentries=config.getint('emp', 'body_maxentries'),
+                            timedtrim=config.getint('emp', 'body_timed_trim'),
+                            dofuzzy=config.getboolean('emp', 'body_fuzzy'))
+        self.emp_phn = emp.EMP(name='emp_phn',
+                            threshold=config.getint('emp', 'phn_threshold'),
+                            ceiling=config.getint('emp', 'phn_ceiling'),
+                            maxentries=config.getint('emp', 'phn_maxentries'),
+                            timedtrim=config.getint('emp', 'phn_timed_trim'))
+        self.emp_phl = emp.EMP(name='emp.phl',
+                            threshold=config.getint('emp', 'phl_threshold'),
+                            ceiling=config.getint('emp', 'phl_ceiling'),
+                            maxentries=config.getint('emp', 'phl_maxentries'),
+                            timedtrim=config.getint('emp', 'phl_timed_trim'))
+        self.emp_fsl = emp.EMP(name='emp_fsl',
+                            threshold=config.getint('emp', 'fsl_threshold'),
+                            ceiling=config.getint('emp', 'fsl_ceiling'),
+                            maxentries=config.getint('emp', 'fsl_maxentries'),
+                            timedtrim=config.getint('emp', 'fsl_timed_trim'))
+        self.emp_ihn = emp.EMP(name='emp_ihn',
+                            threshold=config.getint('emp', 'ihn_threshold'),
+                            ceiling=config.getint('emp', 'ihn_ceiling'),
+                            maxentries=config.getint('emp', 'ihn_maxentries'),
+                            timedtrim=config.getint('emp', 'ihn_timed_trim'))
 
         # Initialize bad_ Regular Expressions
         self.timed_events()
 
     def filter(self, art):
+        # Initialize the posting info dict
+        post = {}
+
         # Trigger timed reloads
         if timing.now() > self.timed_reload:
             self.timed_events()
 
-        # Try to establish the posting host and posting account
-        ph = None
-        pa = None
+        # Try to establish the injection-host, posting-host and
+        # posting-account
         if art[Injection_Info] is not None:
+            # Establish Posting Account
             ispa = self.regex_pa.search(art[Injection_Info])
             if ispa:
-                pa = ispa.group(1)
-                #logging.debug('Posting-Account: %s' % pa)
-
+                post['posting-account'] = ispa.group(1)
+            # Establish Posting Host
             isph = self.regex_ph.search(art[Injection_Info])
             if isph:
-                ph = isph.group(1)
-        if ph is None and art[NNTP_Posting_Host] is not None:
-            ph = str(art[NNTP_Posting_Host])
-        # Ascertain if this posting-host is meaningful
-        if ph is not None:
+                post['posting-host'] = isph.group(1)
+            # Establish injection host
+            isih = self.regex_hostname.match(art[Injection_Info])
+            if isih:
+                post['injection-host'] = isih.group(0)
+
+        # posting-host might be obtainable from NNTP-Posting-Host
+        if not 'posting-host' in post and art[NNTP_Posting_Host] is not None:
+            post['posting-host'] = str(art[NNTP_Posting_Host])
+
+        # If the injection-host wasn't found in Injection-Info, try the
+        # X-Trace header
+        if not 'injection-host' in post and art[X_Trace] is not None:
+            isih = self.regex_hostname.search(art[X_Trace])
+            if isih:
+                post['injection-host'] = isih.group(0)
+                #logging.debug('Injection-Host (from XT): %s' % ih)
+        # Special case for Google who use loads of injection-hosts
+        if ('injection-host' in post and
+            'googlegroups.com' in post['injection-host']):
+            post['injection-host'] = 'googlegroups.com'
+        # Ascertain if the posting-host is meaningful
+        if 'posting-host' in post:
             #logging.debug('Posting-Host: %s' % ph)
-            bad_ph = self.groups.regex.bad_ph.search(ph)
-        else:
-            bad_ph = False
-        if bad_ph:
-            logging.debug('Bad posting host: %s' % ph)
+            isbad_ph = self.groups.regex.bad_ph.search(post['posting-host'])
+            if isbad_ph:
+                post['bad-posting-host'] = isbad_ph.group(0)
+                logging.debug('Bad posting host: %s' % \
+                              post['bad-posting-host'])
+
+        # Analyze the Newsgroups header
+        self.groups.analyze(art[Newsgroups])
+
+        ## --- Everything below is accept / reject code ---
+
+        #TODO Control message handling still needs to be written
+        if art[Control] is not None:
+            logging.info('Control article: %s' % art[Message_ID])
+            return ''
 
         # Compare headers against bad_ files
         if self.bad_groups:
             bg_result = self.bad_groups.search(art[Newsgroups])
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
-                                   art)
+                                   art, post)
         if self.bad_from:
             bf_result = self.bad_from.search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
-                                   art)
-        if ph and not bad_ph and self.bad_posthost:
-            bp_result = self.bad_posthost.search(ph)
+                                   art, post)
+        if ('posting-host' in post and
+            not 'bad_posting-host' in post and self.bad_posthost):
+            bp_result = self.bad_posthost.search(post['posting-host'])
             if bp_result:
                 return self.reject("Bad Posting-Host (%s)" % \
-                                   bp_result.group(0), art)
+                                   bp_result.group(0), art, post)
 
-        # Analyze the Newsgroups header
-        self.groups.analyze(art[Newsgroups])
+        # Is the source of the post considered local?
+        if ('injection-host' in post and self.local_hosts and
+            self.local_hosts.search(post['injection-host'])):
+            # Local Bad From
+            if self.local_bad_from:
+                bf_result = self.local_bad_from.search(art[From])
+                if bf_result:
+                    return self.reject("Local Bad From (%s)" % \
+                                       bf_result.group(0), art, post)
+            # Local Bad Groups
+            if self.local_bad_groups:
+                bg_result = self.local_bad_groups.search(art[Newsgroups])
+                if bg_result:
+                    return self.reject("Local Bad Group (%s)" % \
+                                       bg_result.group(0), art, post)
 
+        # Misplaced binary check
         if not self.groups['binary_allowed_bool']:
             if self.binary(art):
-                return reject("Misplaced Binary")
+                return reject("Misplaced Binary", art, post)
+        # Misplaced HTML check
+        if not self.groups['html_allowed_bool']:
+            if art[Content_Type] is not None:
+                if 'text/html' in str(art[Content_Type]).lower():
+                    return reject("Misplaced HTML", art, post)
+                if 'multipart' in art[Content_Type]:
+                    logging.info('Multipart: %s' % art[Message_ID])
 
-        # Beginning of EMP Body filter
+        # Start of EMP checks
         if not self.groups['emp_exclude_bool']:
+            # Beginning of EMP Body filter
             if art[__BODY__] is not None:
                 if self.emp_body.add(art[__BODY__]):
-                    return self.reject("EMP Body Reject", art)
-            # If a Posting-Account is known, it makes better filter fodder
-            # than the hostname/address which could be dynamic.
-            if pa is not None:
-                fodder = pa
-            elif ph is not None:
-                fodder = ph
+                    return self.reject("EMP Body Reject", art, post)
+            # Start of posting-host based checks.
+            # First try and seed some filter fodder.
+            if 'posting-account' in post:
+                # If a Posting-Account is known, it makes better filter fodder
+                # than the hostname/address which could be dynamic.
+                fodder = post['posting-account']
+            elif 'bad-posting-host' in post:
+                # If we can't trust the info in posting-host, use the
+                # injection-host. This is a worst-case scenario.
+                if ('injection-host' in post and
+                    config.getboolean('emp', 'ph_coarse')):
+                    fodder = post['injection-host']
+                else:
+                    fodder = None
+            elif 'posting-host' in post:
+                fodder = post['posting-host']
             else:
                 fodder = None
             if fodder:
                 # Beginning of PHN filter
                 if self.emp_phn.add(fodder + str(art[Newsgroups])):
-                    return self.reject("EMP PHN Reject", art)
+                    return self.reject("EMP PHN Reject", art, post)
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
-                    return self.reject("EMP PHL Reject", art)
+                    return self.reject("EMP PHL Reject", art, post)
             # Beginning of FSL filter
             fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
             if self.emp_fsl.add(fsl):
-                return self.reject("EMP FSL Reject", art)
+                return self.reject("EMP FSL Reject", art, post)
+            # Beginning of IHN filter
+            if ('injection-host' in post and
+                not self.groups['ihn_exclude_bool']):
+                ihn_result = self.ihn_hosts.search(post['injection-host'])
+                if ihn_result and self.emp_ihn.add(post['injection-host'] + \
+                                                   str(art[Newsgroups])):
+                    return self.reject("EMP IHN Reject", art, post)
+                    
         # The article passed all checks. Return an empty string.
         return ""
 
@@ -265,21 +365,25 @@ class pyclean():
                 logging.info('Suspect binary: %s' % art[Message_ID])
         return False
 
-    def reject(self, reason, art):
+    def reject(self, reason, art, post):
         if reason.startswith('EMP PHN'):
-            self.logart(reason, art, 'emp.phn')
+            self.logart(reason, art, post, 'emp.phn')
         if reason.startswith('EMP PHL'):
-            self.logart(reason, art, 'emp.phl')
+            self.logart(reason, art, post, 'emp.phl')
         if reason.startswith('EMP FSL'):
-            self.logart(reason, art, 'emp.fsl')
+            self.logart(reason, art, post, 'emp.fsl')
         if reason.startswith('EMP Body'):
-            self.logart(reason, art, 'emp.body')
+            self.logart(reason, art, post, 'emp.body')
+        if reason.startswith('EMP IHN'):
+            self.logart(reason, art, post, 'emp.ihn')
         if reason.startswith('Bad'):
-            self.logart(reason, art, 'bad_files')
+            self.logart(reason, art, post, 'bad_files')
+        if reason.startswith('Local Bad'):
+            self.logart(reason, art, post, 'local_bad_files')
         logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
-    def logart(self, reason, art, filename):
+    def logart(self, reason, art, post, filename):
         f = open(os.path.join(self.logdir, filename), 'a')
         f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
         f.write('Info: %s\n' % reason)
@@ -287,6 +391,8 @@ class pyclean():
             if hdr == '__BODY__' or hdr == '__LINES__' or art[hdr] is None:
                 continue
             f.write('%s: %s\n' % (hdr, art[hdr]))
+        for hdr in post.keys():
+            f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
         f.write(art[__BODY__])
         f.write('\n\n')
@@ -298,16 +404,26 @@ class pyclean():
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
         self.emp_phn.statlog()
+        self.emp_ihn.statlog()
         # Set up bad_ Regular Expressions
-        logging.debug('Compiling bad_groups regex')
-        self.bad_groups = self.badfile('bad_groups')
         logging.debug('Compiling bad_from regex')
-        self.bad_from = self.badfile('bad_from')
+        self.bad_from = self.regex_file('bad_from')
+        logging.debug('Compiling bad_groups regex')
+        self.bad_groups = self.regex_file('bad_groups')
         logging.debug('Compiling bad_posthost regex')
-        self.bad_posthost = self.badfile('bad_posthost')
+        self.bad_posthost = self.regex_file('bad_posthost')
+        logging.debug('Compiling ihn_hosts regex')
+        self.ihn_hosts = self.regex_file('ihn_hosts')
+        logging.debug('Compiling local_hosts regex')
+        self.local_hosts = self.regex_file('local_hosts')
+        logging.debug('Compiling local_bad_from regex')
+        self.local_bad_from = self.regex_file('local_bad_from')
+        logging.debug('Compiling local_bad_groups regex')
+        self.local_bad_groups = self.regex_file('local_bad_groups')
+        # Reset the next timed trigger.
         self.timed_reload = timing.future(hours=1)
 
-    def badfile(self, filename):
+    def regex_file(self, filename):
         """Read a given file and return a regular expression composed of
         individual regex's on each line that have not yet expired.
 
@@ -319,12 +435,10 @@ class pyclean():
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
         now = timing.now()
-        # Match lines formated /regex/ timestamp(YYYYMMDD)
-        entry = re.compile('/(.+)/[ \t]+(\d{8})')
         bad_items = []
         f = open(fqfn, 'r')
         for line in f:
-            valid = entry.match(line)
+            valid = self.regex_bads.match(line)
             if valid:
                 try:
                     # Is current time beyond that of the datestamp? If it is,
@@ -343,7 +457,8 @@ class pyclean():
             logging.debug('%s: No valid entries found' % filename)
             return False
         regex = '|'.join(bad_items)
-        # This should never happen but best to check as || will match everything.
+        # This should never happen but best to check as || will match
+        # everything.
         regex = regex.replace('||', '|')
         return re.compile(regex)
 

@@ -46,6 +46,7 @@ class InndFilter:
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
         """
+        reload(PyClean)
 
     def filter_close(self):
         """Runs when innd exits.

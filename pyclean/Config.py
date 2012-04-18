@@ -52,6 +52,31 @@ config.set('logging', 'retain', 7)
 config.add_section('binary')
 config.set('binary', 'lines_allowed', 15)
 
+# EMP
+config.add_section('emp')
+config.set('emp', 'ph_coarse', 'true')
+config.set('emp', 'body_threshold', 5)
+config.set('emp', 'body_ceiling', 85)
+config.set('emp', 'body_maxentries', 5000)
+config.set('emp', 'body_timed_trim', 7200)
+config.set('emp', 'body_fuzzy', 'yes')
+config.set('emp', 'phn_threshold', 150)
+config.set('emp', 'phn_ceiling', 200)
+config.set('emp', 'phn_maxentries', 5000)
+config.set('emp', 'phn_timed_trim', 1800)
+config.set('emp', 'phl_threshold', 20)
+config.set('emp', 'phl_ceiling', 80)
+config.set('emp', 'phl_maxentries', 5000)
+config.set('emp', 'phl_timed_trim', 3600)
+config.set('emp', 'fsl_threshold', 20)
+config.set('emp', 'fsl_ceiling', 40)
+config.set('emp', 'fsl_maxentries', 5000)
+config.set('emp', 'fsl_timed_trim', 3600)
+config.set('emp', 'ihn_threshold', 3)
+config.set('emp', 'ihn_ceiling', 100)
+config.set('emp', 'ihn_maxentries', 1000)
+config.set('emp', 'ihn_timed_trim', 7200)
+
 # The path section is a bit tricky. First off we try to read a default config
 # file.  This can define the path to everything, including the pyclean.cfg
 # config file.

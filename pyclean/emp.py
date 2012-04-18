@@ -106,6 +106,9 @@ class EMP():
         """
         self.stats['oldsize'] = len(self.table)
         for h in self.table.keys():
+            if self.table[h] >= self.stats['ceiling']:
+                logging.info('%s: Ceiling hit for hash %s' % \
+                                (self.stats['name'], h.encode('base64')))
             self.table[h] -= 1
             if self.table[h] <= 0:
                 del self.table[h]

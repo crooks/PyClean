@@ -44,6 +44,10 @@ class Groups():
                 self.grp['bin_allowed'] += 1
             if self.regex.emp_exclude.search(ng):
                 self.grp['emp_exclude'] += 1
+            if self.regex.ihn_exclude.search(ng):
+                self.grp['ihn_exclude'] += 1
+            if self.regex.bin_allowed.search(ng):
+                self.grp['html_allowed'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
         for ngelement in self.grp.keys():
@@ -66,9 +70,14 @@ class Regex():
                        '^alt\.security\.keydist','^linux\.debian\.bugs\.dist$',
                        '^lucky\.freebsd']
         self.bin_allowed = self.regex_compile(bin_allowed)
+        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
+        self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters
         emp_exclude = ['alt\.anonymous\.messages']
         self.emp_exclude = self.regex_compile(emp_exclude)
+        # Exclude groups from IHN filter
+        ihn_exclude = ['alt\.anonymous', 'alt\.privacy']
+        self.ihn_exclude = self.regex_compile(ihn_exclude)
         # Bad posting-hosts
         bad_ph = ['newsguy\.com','tornevall\.net']
         self.bad_ph = self.regex_compile(bad_ph)
