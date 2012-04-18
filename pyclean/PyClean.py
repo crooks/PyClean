@@ -292,12 +292,12 @@ class Filter():
         # Misplaced binary check
         if not self.groups['binary_allowed_bool']:
             if self.binary(art):
-                return reject("Misplaced Binary", art, post)
+                return self.reject("Misplaced Binary", art, post)
         # Misplaced HTML check
         if not self.groups['html_allowed_bool']:
             if art[Content_Type] is not None:
                 if 'text/html' in str(art[Content_Type]).lower():
-                    return reject("Misplaced HTML", art, post)
+                    return self.reject("Misplaced HTML", art, post)
                 if 'multipart' in art[Content_Type]:
                     logging.info('Multipart: %s' % art[Message_ID])
 
