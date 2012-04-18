@@ -17,10 +17,10 @@
 ##   - set_filter_hook(instance)
 ##   - syslog(level, message)
 
-from Config import config
+from pyclean.Config import config
 import os.path
 import traceback
-import PyClean
+import pyclean.PyClean
 #from string import *
 
 class InndFilter:
@@ -33,7 +33,7 @@ class InndFilter:
 
         """
         try:
-            self.pyclean = PyClean.pyclean()
+            self.pyclean = pyclean.PyClean.Filter()
         except:
             fn = os.path.join(config.get('paths', 'log'), 'init_traceback')
             f = open(fn, 'a')
@@ -46,7 +46,7 @@ class InndFilter:
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
         """
-        reload(PyClean)
+        reload(pyclean.PyClean)
 
     def filter_close(self):
         """Runs when innd exits.

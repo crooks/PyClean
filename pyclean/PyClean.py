@@ -17,10 +17,10 @@
 # This file forms the start on some work to allow newsgroup filters to be
 # added and auto-expired after a defined period.
 
-from Config import config
-import emp
-import Groups
-import timing
+from pyclean.Config import config
+import pyclean.emp
+import pyclean.Groups
+import pyclean.timing
 
 import re
 import os.path
@@ -133,7 +133,7 @@ __BODY__ = intern("__BODY__")
 __LINES__ = intern("__LINES__")
 
 
-class pyclean():
+class Filter():
     def __init__(self):
         """This runs every time the filter is loaded or reloaded.
         This is a good place to initialize variables and precompile
@@ -144,7 +144,7 @@ class pyclean():
         self.logdir = logdir
 
         # Initialize Group Analizer
-        self.groups = Groups.Groups()
+        self.groups = pyclean.Groups.Groups()
 
         # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
@@ -162,28 +162,28 @@ class pyclean():
         self.regex_hostname = re.compile(hostname1 + hostname2)
 
         # Set up the EMP filters
-        self.emp_body = emp.EMP(name='emp_body',
+        self.emp_body = pyclean.emp.EMP(name='emp_body',
                             threshold=config.getint('emp', 'body_threshold'),
                             ceiling=config.getint('emp', 'body_ceiling'),
                             maxentries=config.getint('emp', 'body_maxentries'),
                             timedtrim=config.getint('emp', 'body_timed_trim'),
                             dofuzzy=config.getboolean('emp', 'body_fuzzy'))
-        self.emp_phn = emp.EMP(name='emp_phn',
+        self.emp_phn = pyclean.emp.EMP(name='emp_phn',
                             threshold=config.getint('emp', 'phn_threshold'),
                             ceiling=config.getint('emp', 'phn_ceiling'),
                             maxentries=config.getint('emp', 'phn_maxentries'),
                             timedtrim=config.getint('emp', 'phn_timed_trim'))
-        self.emp_phl = emp.EMP(name='emp.phl',
+        self.emp_phl = pyclean.emp.EMP(name='emp.phl',
                             threshold=config.getint('emp', 'phl_threshold'),
                             ceiling=config.getint('emp', 'phl_ceiling'),
                             maxentries=config.getint('emp', 'phl_maxentries'),
                             timedtrim=config.getint('emp', 'phl_timed_trim'))
-        self.emp_fsl = emp.EMP(name='emp_fsl',
+        self.emp_fsl = pyclean.emp.EMP(name='emp_fsl',
                             threshold=config.getint('emp', 'fsl_threshold'),
                             ceiling=config.getint('emp', 'fsl_ceiling'),
                             maxentries=config.getint('emp', 'fsl_maxentries'),
                             timedtrim=config.getint('emp', 'fsl_timed_trim'))
-        self.emp_ihn = emp.EMP(name='emp_ihn',
+        self.emp_ihn = pyclean.emp.EMP(name='emp_ihn',
                             threshold=config.getint('emp', 'ihn_threshold'),
                             ceiling=config.getint('emp', 'ihn_ceiling'),
                             maxentries=config.getint('emp', 'ihn_maxentries'),
@@ -197,7 +197,7 @@ class pyclean():
         post = {}
 
         # Trigger timed reloads
-        if timing.now() > self.timed_reload:
+        if pyclean.timing.now() > self.timed_reload:
             self.timed_events()
 
         # Try to establish the injection-host, posting-host and
@@ -421,7 +421,7 @@ class pyclean():
         logging.debug('Compiling local_bad_groups regex')
         self.local_bad_groups = self.regex_file('local_bad_groups')
         # Reset the next timed trigger.
-        self.timed_reload = timing.future(hours=1)
+        self.timed_reload = pyclean.timing.future(hours=1)
 
     def regex_file(self, filename):
         """Read a given file and return a regular expression composed of
@@ -434,7 +434,7 @@ class pyclean():
             return False
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
-        now = timing.now()
+        now = pyclean.timing.now()
         bad_items = []
         f = open(fqfn, 'r')
         for line in f:
@@ -444,7 +444,7 @@ class pyclean():
                     # Is current time beyond that of the datestamp? If it is,
                     # the entry is considered expired and processing moves to
                     # the next entry.
-                    if now > timing.dateobj(valid.group(2)):
+                    if now > pyclean.timing.dateobj(valid.group(2)):
                         continue
                 except ValueError:
                     # If the timestamp is invalid, just ignore the entry

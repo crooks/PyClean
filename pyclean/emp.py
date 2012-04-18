@@ -17,9 +17,9 @@
 # This file forms the start on some work to allow newsgroup filters to be
 # added and auto-expired after a defined period.
 
+import pyclean.timing
 import hashlib
 import re
-import timing
 import sys
 import logging
 
@@ -41,7 +41,7 @@ class EMP():
         self.fuzzy_notletters = re.compile('[^a-zA-Z]')
         # Initialize some defaults
         self.stats = {'name':       name,
-                      'nexttrim':   timing.future(secs=timedtrim),
+                      'nexttrim':   pyclean.timing.future(secs=timedtrim),
                       'processed':  0,
                       'accepted':   0,
                       'rejected':   0,
@@ -84,7 +84,7 @@ class EMP():
         else:
             # See if it's time to perform a trim.  We only care about doing
             # this when a new entry is being made.
-            if timing.now() > self.stats['nexttrim']:
+            if pyclean.timing.now() > self.stats['nexttrim']:
                 self._trim()
             elif len(self.table) > self.stats['maxentries']:
                 logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
@@ -115,7 +115,8 @@ class EMP():
         self.stats['size'] = len(self.table)
         logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s' \
                      % self.stats)
-        self.stats['nexttrim'] = timing.future(secs=self.stats['timedtrim'])
+        self.stats['nexttrim'] = \
+                    pyclean.timing.future(secs=self.stats['timedtrim'])
 
     def statlog(self):
         """Log details of the EMP hash."""
