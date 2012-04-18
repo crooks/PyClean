@@ -252,6 +252,7 @@ class Filter():
 
         # Newsguy are evil sex spammers
         if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
+            config.getboolean('custom', 'newsguy') and
             'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
 

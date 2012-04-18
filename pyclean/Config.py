@@ -78,6 +78,9 @@ config.set('emp', 'ihn_ceiling', 100)
 config.set('emp', 'ihn_maxentries', 1000)
 config.set('emp', 'ihn_timed_trim', 7200)
 
+config.add_section('custom')
+config.set('custom', 'newsguy', 'true')
+
 # The path section is a bit tricky. First off we try to read a default config
 # file.  This can define the path to everything, including the pyclean.cfg
 # config file.
