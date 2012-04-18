@@ -247,7 +247,8 @@ class Filter():
 
         #TODO Control message handling still needs to be written
         if art[Control] is not None:
-            logging.info('Control article: %s' % art[Message_ID])
+            logging.info('Control: %s, mid=%s' % (art[Control],
+                                                 art[Message_ID]))
             return ''
 
         # Newsguy are evil sex spammers
