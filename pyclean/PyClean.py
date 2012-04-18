@@ -412,6 +412,7 @@ class Filter():
             for line in str(art[__BODY__]).split('\n',
                         config.get('logging', 'logart_maxlines'))[:-1]:
                 f.write(line + "\n")
+            f.write('[snip]'
         f.write('\n\n')
         f.close
 
