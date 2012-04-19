@@ -309,7 +309,8 @@ class Filter():
                     logging.info('Multipart: %s' % art[Message_ID])
 
         # Start of EMP checks
-        if not self.groups['emp_exclude_bool']:
+        if (not self.groups['emp_exclude_bool'] and
+            not self.groups['test_bool']):
             # Beginning of EMP Body filter
             if art[__BODY__] is not None:
                 if self.emp_body.add(art[__BODY__]):
