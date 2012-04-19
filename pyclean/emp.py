@@ -42,9 +42,9 @@ class EMP():
         # Initialize some defaults
         self.stats = {'name':       name,
                       'nexttrim':   pyclean.timing.future(secs=timedtrim),
-                      'processed':  0,
-                      'accepted':   0,
-                      'rejected':   0,
+                      'processed':  long(0),
+                      'accepted':   long(0),
+                      'rejected':   long(0),
                       'threshold':  threshold,
                       'ceiling':    ceiling,
                       'maxentries': maxentries,
