@@ -255,6 +255,10 @@ class Filter():
                                                       art[Message_ID]))
             return ''
 
+        # Max-crosspost check
+        if self.groups['count'] > config.get('groups', 'max_crosspost'):
+            return self.reject("Crosspost Limit Exceeded", art, post)
+
         # Newsguy are evil sex spammers
         if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
             config.getboolean('custom', 'newsguy') and
@@ -296,7 +300,7 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        if config.getbool('binary', 'reject_all'):
+        if config.getboolean('binary', 'reject_all'):
             if self.binary(art):
                 return self.reject("Binary Post", art, post)
         elif not self.groups['binary_allowed_bool'] and self.binary(art):
@@ -401,6 +405,8 @@ class Filter():
             self.logart(reason, art, post, 'binary')
         if reason.startswith('HTML'):
             self.logart(reason, art, post, 'html')
+        if reason.startswith('Crosspost'):
+            self.logart(reason, art, post, 'crosspost')
         logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 

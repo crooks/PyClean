@@ -79,6 +79,9 @@ config.set('emp', 'ihn_ceiling', 10)
 config.set('emp', 'ihn_maxentries', 1000)
 config.set('emp', 'ihn_timed_trim', 7200)
 
+config.add_section('groups')
+config.set('groups', 'max_crosspost', 10)
+
 config.add_section('control')
 config.set('control', 'reject_cancels', 'false')
 

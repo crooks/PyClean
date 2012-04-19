@@ -36,7 +36,7 @@ class Groups():
     def analyze(self, newsgroups):
         self.grp = defaultdict(lambda: 0)
         nglist = str(newsgroups).split(',')
-        nglen = len(nglist)
+        self.grp['count'] = len(nglist)
         for ng in nglist:
             if self.regex.test.search(ng):
                 self.grp['test'] += 1
@@ -52,7 +52,7 @@ class Groups():
         # generically then specifically.
         for ngelement in self.grp.keys():
             ngbool = '%s_bool' % ngelement
-            self.grp[ngbool] = self.grp[ngelement] == nglen
+            self.grp[ngbool] = self.grp[ngelement] == self.grp['count']
 
 class Regex():
     def __init__(self):
