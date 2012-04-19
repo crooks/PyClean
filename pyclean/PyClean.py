@@ -355,6 +355,9 @@ class Filter():
         return ""
 
     def binary(self, art):
+        # Ignore base64 encoded content.
+        if 'base64' in str(art[Content_Transfer_Encoding]).lower():
+            return False
         if self.regex_uuenc.search(art[__BODY__]):
             return 'uuEnc'
         yenc = self.regex_yenc.search(art[__BODY__])
