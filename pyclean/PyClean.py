@@ -296,15 +296,16 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        if (not self.groups['binary_allowed_bool'] or
-            config.getbool('binary', 'reject_all')):
+        if config.getbool('binary', 'reject_all'):
             if self.binary(art):
-                return self.reject("Misplaced Binary", art, post)
+                return self.reject("Binary Post", art, post)
+        elif not self.groups['binary_allowed_bool'] and self.binary(art):
+                return self.reject("Binary Misplaced", art, post)
         # Misplaced HTML check
         if not self.groups['html_allowed_bool']:
             if art[Content_Type] is not None:
                 if 'text/html' in str(art[Content_Type]).lower():
-                    return self.reject("Misplaced HTML", art, post)
+                    return self.reject("HTML Misplaced", art, post)
                 if 'multipart' in art[Content_Type]:
                     logging.info('Multipart: %s' % art[Message_ID])
 
@@ -396,6 +397,10 @@ class Filter():
             self.logart(reason, art, post, 'bad_files')
         if reason.startswith('Local Bad'):
             self.logart(reason, art, post, 'local_bad_files')
+        if reason.startswith('Binary'):
+            self.logart(reason, art, post, 'binary')
+        if reason.startswith('HTML'):
+            self.logart(reason, art, post, 'html')
         logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
