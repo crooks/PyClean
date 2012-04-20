@@ -140,8 +140,6 @@ class Filter():
         regular expressions, or maybe reload stats from disk.
 
         """
-        logdir = config.get('paths', 'log')
-        self.logdir = logdir
 
         # Initialize Group Analizer
         self.groups = pyclean.Groups.Groups()
@@ -411,7 +409,7 @@ class Filter():
         return reason
 
     def logart(self, reason, art, post, filename):
-        f = open(os.path.join(self.logdir, filename), 'a')
+        f = open(os.path.join(config.get('paths', 'reject'), filename), 'a')
         f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
         f.write('Info: %s\n' % reason)
         for hdr in art.keys():
