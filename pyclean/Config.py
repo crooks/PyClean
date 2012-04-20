@@ -53,6 +53,8 @@ config.set('logging', 'logart_maxlines', 20)
 config.add_section('binary')
 config.set('binary', 'lines_allowed', 15)
 config.set('binary', 'reject_all', 'false')
+config.set('binary', 'allow_pgp', 'true')
+config.set('binary', 'reject_suspected', 'false')
 
 # EMP
 config.add_section('emp')

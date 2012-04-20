@@ -370,10 +370,17 @@ class Filter():
             l = yenc.group(0)
             if 'line=' in l and 'size=' in l and 'name=' in l:
                 return 'yEnc'
+        # Avoid costly checks where articles are shorter than the allowed
+        # number of binary lines.
+        if long(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
+            return False
         # Base64 and suspect binary matching
         b64match = 0
         suspect = 0
         for line in str(art[__BODY__]).split('\n'):
+            if (line.startswith('-----BEGIN PGP') and
+                config.getboolean('binary', 'allow_pgp')):
+                break
             if self.regex_base64.match(line):
                 b64match += 1
             if self.regex_binary.match(line):
@@ -381,7 +388,11 @@ class Filter():
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
             if suspect > config.get('binary', 'lines_allowed'):
-                logging.info('Suspect binary: %s' % art[Message_ID])
+                if config.getboolean('binary', 'reject_suspected'):
+                    return 'binary'
+                else:
+                    logging.info('Suspect binary: %s' % art[Message_ID])
+                break
         return False
 
     def reject(self, reason, art, post):
@@ -405,7 +416,8 @@ class Filter():
             self.logart(reason, art, post, 'html')
         if reason.startswith('Crosspost'):
             self.logart(reason, art, post, 'crosspost')
-        logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
+        logging.debug('reject: mid=%s, reason=%s size=%s' % \
+                     (art[Message_ID], reason, art[Bytes]))
         return reason
 
     def logart(self, reason, art, post, filename):
