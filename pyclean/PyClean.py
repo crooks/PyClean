@@ -133,6 +133,86 @@ __BODY__ = intern("__BODY__")
 __LINES__ = intern("__LINES__")
 
 
+class Binary():
+    def __init__(self):
+        # Binaries
+        self.regex_yenc = re.compile('^=ybegin.*', re.M)
+        self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
+        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
+        self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
+        # Feedhosts keeps a tally of how many binary articles are received
+        # from each upstream peer.
+        self.feedhosts = {}
+        # Initially we'll produce a binary report after an hour.  From that
+        # time on, just daily.
+        self.next_report = pyclean.timing.future(hours=1)
+
+    def increment(self, pathhost):
+        """Increment feedhosts."""
+        if pathhost in self.feedhosts:
+            self.feedhosts[pathhost] += 1
+        else:
+            self.feedhosts[pathhost] = 1
+
+    def get_next_report(self):
+        """Return the datetime object for when the next binfeed report should
+        be produced.
+
+        """
+        return self.next_report
+
+    def report(self):
+        fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
+        f = open(fn, 'w')
+        for e in self.feedhosts.keys():
+            f.write('%s: %s' % (e, self.feedhosts[e]))
+        f.close()
+        self.next_report = pyclean.timing.future(hours=24)
+        self.feedhosts = {}
+
+    def isbin(self, art):
+        """The primary function of the Binary class.  An article's body is
+        compared against a number of checks.  If the conclusion is that the
+        payload is binary, the type of binary is returned.  Non-binary content
+        will return False.
+
+        """
+        # Ignore base64 encoded content.
+        if 'base64' in str(art[Content_Transfer_Encoding]).lower():
+            return False
+        if self.regex_uuenc.search(art[__BODY__]):
+            return 'uuEnc'
+        yenc = self.regex_yenc.search(art[__BODY__])
+        if yenc:
+            # Extract the matching line
+            l = yenc.group(0)
+            if 'line=' in l and 'size=' in l and 'name=' in l:
+                return 'yEnc'
+        # Avoid costly checks where articles are shorter than the allowed
+        # number of binary lines.
+        if long(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
+            return False
+        # Base64 and suspect binary matching
+        b64match = 0
+        suspect = 0
+        for line in str(art[__BODY__]).split('\n'):
+            if (line.startswith('-----BEGIN PGP') and
+                config.getboolean('binary', 'allow_pgp')):
+                break
+            if self.regex_base64.match(line):
+                b64match += 1
+            if self.regex_binary.match(line):
+                suspect += 1
+            if b64match > config.get('binary', 'lines_allowed'):
+                return 'base64'
+            if suspect > config.get('binary', 'lines_allowed'):
+                if config.getboolean('binary', 'reject_suspected'):
+                    return 'binary'
+                else:
+                    logging.info('Suspect binary: %s' % art[Message_ID])
+                break
+        return False
+
 class Filter():
     def __init__(self):
         """This runs every time the filter is loaded or reloaded.
@@ -143,15 +223,12 @@ class Filter():
 
         # Initialize Group Analizer
         self.groups = pyclean.Groups.Groups()
+        # Initialize Binary Filters
+        self.binary = Binary()
 
         # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
-        # Binaries
-        self.regex_yenc = re.compile('^=ybegin.*', re.M)
-        self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
-        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
-        self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
         # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
         self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
         # Hostname - Not a 100% perfect regex but probably good enough.
@@ -254,6 +331,9 @@ class Filter():
                 logging.debug('Bad posting host: %s' % \
                               post['bad-posting-host'])
 
+        # The host that fed us this article is first in the Path header.
+        post['feed-host'] = str(art[Path]).split('!', 1)[0]
+
         # Analyze the Newsgroups header
         self.groups.analyze(art[Newsgroups])
 
@@ -314,11 +394,13 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        isbin = self.binary(art)
+        isbin = self.binary.isbin(art)
         if config.getboolean('binary', 'reject_all') and isbin:
+            self.binary.increment(post['feed-host'])
             return self.reject("Binary (%s)" % isbin, art, post)
         elif not self.groups['binary_allowed_bool'] and isbin:
-                return self.reject("Binary Misplaced (%s)" % isbin, art, post)
+            self.binary.increment(post['feed-host'])
+            return self.reject("Binary Misplaced (%s)" % isbin, art, post)
         # Misplaced HTML check
         if not self.groups['html_allowed_bool']:
             if art[Content_Type] is not None:
@@ -374,43 +456,6 @@ class Filter():
         # The article passed all checks. Return an empty string.
         return ""
 
-    def binary(self, art):
-        # Ignore base64 encoded content.
-        if 'base64' in str(art[Content_Transfer_Encoding]).lower():
-            return False
-        if self.regex_uuenc.search(art[__BODY__]):
-            return 'uuEnc'
-        yenc = self.regex_yenc.search(art[__BODY__])
-        if yenc:
-            # Extract the matching line
-            l = yenc.group(0)
-            if 'line=' in l and 'size=' in l and 'name=' in l:
-                return 'yEnc'
-        # Avoid costly checks where articles are shorter than the allowed
-        # number of binary lines.
-        if long(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
-            return False
-        # Base64 and suspect binary matching
-        b64match = 0
-        suspect = 0
-        for line in str(art[__BODY__]).split('\n'):
-            if (line.startswith('-----BEGIN PGP') and
-                config.getboolean('binary', 'allow_pgp')):
-                break
-            if self.regex_base64.match(line):
-                b64match += 1
-            if self.regex_binary.match(line):
-                suspect += 1
-            if b64match > config.get('binary', 'lines_allowed'):
-                return 'base64'
-            if suspect > config.get('binary', 'lines_allowed'):
-                if config.getboolean('binary', 'reject_suspected'):
-                    return 'binary'
-                else:
-                    logging.info('Suspect binary: %s' % art[Message_ID])
-                break
-        return False
-
     def reject(self, reason, art, post):
         if reason.startswith('EMP PHN'):
             self.logart(reason, art, post, 'emp.phn')
@@ -463,6 +508,10 @@ class Filter():
         self.emp_phl.statlog()
         self.emp_phn.statlog()
         self.emp_ihn.statlog()
+        # Here is a good point to check if it's time for a binary report. As
+        # binary reporting only happens every 24 hours and this runs hourly.
+        if pyclean.timing.now() > self.binary.get_next_report():
+            self.binary.report()
         # Set up bad_ Regular Expressions
         logging.debug('Compiling bad_from regex')
         self.bad_from = self.regex_file('bad_from')
@@ -521,3 +570,6 @@ class Filter():
         return re.compile(regex)
 
 init_logging()
+
+if (__name__ == "__main__"):
+    test = Filter()
