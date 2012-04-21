@@ -164,6 +164,8 @@ class Binary():
     def report(self):
         fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
         f = open(fn, 'w')
+        f.write('# Binary feeders report - %s\n\n' % \
+                                            pyclean.timing.nowstamp())
         for e in self.feedhosts.keys():
             f.write('%s: %s' % (e, self.feedhosts[e]))
         f.close()

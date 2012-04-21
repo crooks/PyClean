@@ -37,6 +37,11 @@ def now():
     return datetime.datetime.utcnow()
     #return datetime.datetime.now()
 
+def nowstamp():
+    """A shortcut function to return a textual representation of now."""
+    return timestamp(now())
+
 
 if (__name__ == "__main__"):
     print timestamp(future(hours=1))
+    print nowstamp()
