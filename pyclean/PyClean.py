@@ -158,6 +158,11 @@ class Filter():
         hostname1 = '([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]+[a-zA-Z0-9])'
         hostname2 = '(\.[a-zA-Z0-9\-]+)+'
         self.regex_hostname = re.compile(hostname1 + hostname2)
+        # Path replacement regexs
+        self.regex_path1 = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
+        self.regex_path2 = re.compile('\.POSTED[^!]*$')  # Strip POSTED
+        self.regex_path3 = re.compile('.*!')  # Strip all but RH path entry
+
 
         # Set up the EMP filters
         self.emp_body = pyclean.emp.EMP(name='emp_body',
@@ -225,10 +230,21 @@ class Filter():
             if isih:
                 post['injection-host'] = isih.group(0)
                 #logging.debug('Injection-Host (from XT): %s' % ih)
+
+        # Try to extract a hostname from the Path header
+        if (not 'injection-host' in post and
+          config.getboolean('hostnames', 'path_hostname')):
+            sub1 = re.sub(self.regex_path1, '', art[Path])
+            sub2 = re.sub(self.regex_path2, '', sub1)
+            sub3 = re.sub(self.regex_path3, '', sub2)
+            if self.regex_hostname.match(sub3):
+                post['injection-host'] = sub3
+
         # Special case for Google who use loads of injection-hosts
         if ('injection-host' in post and
             'googlegroups.com' in post['injection-host']):
             post['injection-host'] = 'googlegroups.com'
+
         # Ascertain if the posting-host is meaningful
         if 'posting-host' in post:
             #logging.debug('Posting-Host: %s' % ph)
@@ -416,8 +432,7 @@ class Filter():
             self.logart(reason, art, post, 'html')
         if reason.startswith('Crosspost'):
             self.logart(reason, art, post, 'crosspost')
-        logging.debug('reject: mid=%s, reason=%s size=%s' % \
-                     (art[Message_ID], reason, art[Bytes]))
+        logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
     def logart(self, reason, art, post, filename):

@@ -90,9 +90,13 @@ config.set('control', 'reject_cancels', 'false')
 config.add_section('custom')
 config.set('custom', 'newsguy', 'true')
 
+config.add_section('hostnames')
+config.set('hostnames', 'path_hostname', 'true')
+
 # The path section is a bit tricky. First off we try to read a default config
 # file.  This can define the path to everything, including the pyclean.cfg
-# config file.
+# config file.  For this reason, all the path entries that could generate
+# directories need to come after the config files have been read.
 config.add_section('paths')
 # In accordance with Debian standards, we'll look for /etc/default/pyclean.
 # This file can define the path for pyclean's etc, which includes the
