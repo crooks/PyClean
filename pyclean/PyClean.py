@@ -314,11 +314,11 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        if config.getboolean('binary', 'reject_all'):
-            if self.binary(art):
-                return self.reject("Binary Post", art, post)
-        elif not self.groups['binary_allowed_bool'] and self.binary(art):
-                return self.reject("Binary Misplaced", art, post)
+        isbin = self.binary(art)
+        if config.getboolean('binary', 'reject_all') and isbin:
+            return self.reject("Binary (%s)" % isbin, art, post)
+        elif not self.groups['binary_allowed_bool'] and isbin:
+                return self.reject("Binary Misplaced (%s)" % isbin, art, post)
         # Misplaced HTML check
         if not self.groups['html_allowed_bool']:
             if art[Content_Type] is not None:
