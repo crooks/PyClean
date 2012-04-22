@@ -347,6 +347,9 @@ class Filter():
         #TODO Control message handling still needs to be written
         if art[Control] is not None:
             ctrltype = str(art[Control]).split(" ", 1)[0]
+            # Reject control messages with supersedes headers
+            if art[Supersedes] is not None:
+                return reject('Control %s with Supersedes header' % ctrltype)
             if (ctrltype == 'cancel' and
               config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
