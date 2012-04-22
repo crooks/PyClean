@@ -241,6 +241,9 @@ class Filter():
         self.regex_path1 = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         self.regex_path2 = re.compile('\.POSTED[^!]*$')  # Strip POSTED
         self.regex_path3 = re.compile('.*!')  # Strip all but RH path entry
+        # Redundant control message types
+        self.redundant_controls = ['sendsys', 'senduuname', 'version',
+                                   'whogets']
 
 
         # Set up the EMP filters
@@ -343,9 +346,13 @@ class Filter():
 
         #TODO Control message handling still needs to be written
         if art[Control] is not None:
-            if (str(art[Control]).startswith('cancel') and
+            ctrltype = str(art[Control]).split(" ", 1)[0]
+            if (ctrltype == 'cancel' and
               config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
+            elif (ctrltype in self.redundant_controls and
+              config.getboolean('control', 'reject_redundant')):
+                return reject("Redundant Control Type: %s" % ctrltype)
             else:
                 logging.info('Control: %s, mid=%s' % (art[Control],
                                                       art[Message_ID]))
@@ -357,7 +364,7 @@ class Filter():
 
         # Newsguy are evil sex spammers
         if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
-            config.getboolean('custom', 'newsguy') and
+            config.getboolean('filters', 'newsguy') and
             'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
 
@@ -404,11 +411,15 @@ class Filter():
             self.binary.increment(post['feed-host'])
             return self.reject("Binary Misplaced (%s)" % isbin, art, post)
         # Misplaced HTML check
-        if not self.groups['html_allowed_bool']:
-            if art[Content_Type] is not None:
-                if 'text/html' in str(art[Content_Type]).lower():
-                    return self.reject("HTML Misplaced", art, post)
-                if 'multipart' in art[Content_Type]:
+        if (not self.groups['html_allowed_bool'] and
+          config.getboolean('filters', 'reject_html') and
+          art[Content_Type] is not None):
+            if 'text/html' in str(art[Content_Type]).lower():
+                return self.reject("HTML Misplaced", art, post)
+            if 'multipart' in art[Content_Type]:
+                if config.getboolean('filters', 'reject_multipart'):
+                    return self.reject("MIME Multpart", art, post)
+                else:
                     logging.info('Multipart: %s' % art[Message_ID])
 
         # Start of EMP checks

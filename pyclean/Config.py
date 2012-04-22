@@ -86,9 +86,12 @@ config.set('groups', 'max_crosspost', 10)
 
 config.add_section('control')
 config.set('control', 'reject_cancels', 'false')
+config.set('control', 'reject_redundant', 'true')
 
-config.add_section('custom')
-config.set('custom', 'newsguy', 'true')
+config.add_section('filters')
+config.set('filters', 'newsguy', 'true')
+config.set('filters', 'reject_html', 'true')
+config.set('filters', 'reject_multipart', 'false')
 
 config.add_section('hostnames')
 config.set('hostnames', 'path_hostname', 'true')
