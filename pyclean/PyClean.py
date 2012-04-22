@@ -204,8 +204,12 @@ class Binary():
                 break
             if self.regex_base64.match(line):
                 b64match += 1
+            else:
+                b64match = 0
             if self.regex_binary.match(line):
                 suspect += 1
+            else:
+                suspect = 0
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
             if suspect > config.get('binary', 'lines_allowed'):
