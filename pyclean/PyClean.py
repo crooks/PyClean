@@ -169,7 +169,8 @@ class Binary():
         for e in self.feedhosts.keys():
             f.write('%s: %s' % (e, self.feedhosts[e]))
         f.close()
-        self.next_report = pyclean.timing.future(hours=24)
+        self.next_report = \
+          pyclean.timing.future(hours=config.getint('binary', 'report_hours'))
         self.feedhosts = {}
 
     def isbin(self, art):
