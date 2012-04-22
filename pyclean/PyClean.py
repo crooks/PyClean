@@ -324,8 +324,12 @@ class Filter():
 
         # Special case for Google who use loads of injection-hosts
         if ('injection-host' in post and
-            'googlegroups.com' in post['injection-host']):
+          post['injection-host'].endswith('googlegroups.com')):
             post['injection-host'] = 'googlegroups.com'
+        # Jobcircle use numerous posting hosts, perhaps to circumvent EMP?
+        if ('posting-host' in post and
+          post['posting-host'].endswith('jobcircle.com')):
+            post['posting-host'] = 'jobcircle.com'
 
         # Ascertain if the posting-host is meaningful
         if 'posting-host' in post:
