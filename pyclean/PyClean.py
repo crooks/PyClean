@@ -167,7 +167,7 @@ class Binary():
         f.write('# Binary feeders report - %s\n\n' % \
                                             pyclean.timing.nowstamp())
         for e in self.feedhosts.keys():
-            f.write('%s: %s' % (e, self.feedhosts[e]))
+            f.write('%s: %s\n' % (e, self.feedhosts[e]))
         f.close()
         self.next_report = \
           pyclean.timing.future(hours=config.getint('binary', 'report_hours'))
