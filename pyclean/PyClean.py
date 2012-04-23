@@ -284,7 +284,7 @@ class Filter():
                             timedtrim=config.getint('emp', 'ihn_timed_trim'))
 
         # Initialize bad_ Regular Expressions
-        self.timed_events()
+        self.timed_events(startup=True)
 
     def filter(self, art):
         # Initialize the posting info dict
@@ -530,24 +530,19 @@ class Filter():
         f.write('\n\n')
         f.close
 
-    def timed_events(self):
+    def timed_events(self, startup=False):
+        """Carry out hourly events.  Some of these events may be to check if
+        it's time to do other, less frequent events.  Timed events are also
+        triggered on startup.  The "startup" flag enables special handling of
+        this instance.
+
+        """
         logging.debug('Performing timed events')
         self.emp_body.statlog()
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
         self.emp_phn.statlog()
         self.emp_ihn.statlog()
-        # Re-read the config file.
-        configfile = os.path.join(config.get('paths', 'etc'), 'pyclean.cfg')
-        logging.info("Reloading config file: %s" % configfile)
-        if os.path.isfile(configfile):
-            config.read(configfile)
-        else:
-            logging.warn("%s: File not found" % configfile)
-        # Here is a good point to check if it's time for a binary report. As
-        # binary reporting only happens every 24 hours and this runs hourly.
-        if pyclean.timing.now() > self.binary.get_next_report():
-            self.binary.report()
         # Set up bad_ Regular Expressions
         logging.debug('Compiling bad_from regex')
         self.bad_from = self.regex_file('bad_from')
@@ -563,6 +558,19 @@ class Filter():
         self.local_bad_from = self.regex_file('local_bad_from')
         logging.debug('Compiling local_bad_groups regex')
         self.local_bad_groups = self.regex_file('local_bad_groups')
+        if not startup:
+            # Re-read the config file.
+            configfile = os.path.join(config.get('paths', 'etc'),
+                                                 'pyclean.cfg')
+            logging.info("Reloading config file: %s" % configfile)
+            if os.path.isfile(configfile):
+                config.read(configfile)
+            else:
+                logging.warn("%s: File not found" % configfile)
+            # Here is a good point to check if it's time for a binary report. As
+            # binary reporting only happens every 24 hours and this runs hourly.
+            if pyclean.timing.now() > self.binary.get_next_report():
+                self.binary.report()
         # Reset the next timed trigger.
         self.timed_reload = pyclean.timing.future(hours=1)
 
