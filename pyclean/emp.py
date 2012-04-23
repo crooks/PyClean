@@ -107,8 +107,10 @@ class EMP():
         self.stats['oldsize'] = len(self.table)
         for h in self.table.keys():
             if self.table[h] >= self.stats['ceiling']:
-                logging.info('%s: Ceiling hit for hash %s' % \
-                                (self.stats['name'], h.encode('hex')))
+                logging.info('%s: Ceiling (%s) hit for hash %s' % \
+                                (self.stats['name'],
+                                 self.stats['ceiling'],
+                                 h.encode('hex')))
             self.table[h] -= 1
             if self.table[h] <= 0:
                 del self.table[h]
@@ -130,6 +132,7 @@ class EMP():
 if (__name__ == "__main__"):
     import random
     emp = EMP(threshold=2,
+              ceiling=3,
               dofuzzy=True,
               name='emp_test')
     iters = 0
@@ -137,10 +140,9 @@ if (__name__ == "__main__"):
         randstring = ""
         while len(randstring) < 3:
             randstring += random.choice('abcdefghijklmnopqrstuvwxyz')
-        randstring += 'xxxxxxxxxx'
-        if iters % 1000 == 0:
+        randstring += 'xxxxx xxx xxxx'
+        if iters % 10000 == 0:
             sys.stdout.write('Doing iteration %s\n' % iters)
         if emp.add(randstring):
-            pass
-            #sys.stdout.write('Collision on %s\n' % randstring)
+            sys.stdout.write('Collision on %s\n' % randstring)
         iters += 1
