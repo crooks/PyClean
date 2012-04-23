@@ -137,9 +137,9 @@ if not config.has_option('paths', 'log'):
     makedir(basedir)
 makedir(config.get('paths', 'log'))
 
-if not config.has_option('paths', 'reject'):
-    config.set('paths', 'reject', os.path.join(config.get('paths', 'log'),
-                                                          'reject'))
+if not config.has_option('paths', 'logart'):
+    config.set('paths', 'logart', os.path.join(config.get('paths', 'log'),
+                                                          'logart'))
 makedir(config.get('paths', 'reject'))
 
 # The following lines can be uncommented in order to write a config file. This

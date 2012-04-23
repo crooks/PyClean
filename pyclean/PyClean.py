@@ -519,7 +519,7 @@ class Filter():
         return reason
 
     def logart(self, reason, art, post, filename, trim=True):
-        f = open(os.path.join(config.get('paths', 'reject'), filename), 'a')
+        f = open(os.path.join(config.get('paths', 'logart'), filename), 'a')
         f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
         f.write('Info: %s\n' % reason)
         for hdr in art.keys():
