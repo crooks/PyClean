@@ -393,7 +393,8 @@ class Filter():
         if self.log_from:
             lf_result = self.log_from.search(art[From])
             if lf_result:
-                logart(lf_result.group(0), art, post, 'log_from', trim=False)
+                self.logart(lf_result.group(0), art, post, 'log_from',
+                            trim=False)
         if self.bad_groups:
             bg_result = self.bad_groups.search(art[Newsgroups])
             if bg_result:
