@@ -389,7 +389,11 @@ class Filter():
             'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
 
-        # Compare headers against bad_ files
+        # Compare headers against regex files
+        if self.log_from:
+            lf_result = self.log_from.search(art[From])
+            if lf_result:
+                logart(lf_result.group(0), art, post, 'log_from', trim=False)
         if self.bad_groups:
             bg_result = self.bad_groups.search(art[Newsgroups])
             if bg_result:
@@ -514,7 +518,7 @@ class Filter():
         logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
-    def logart(self, reason, art, post, filename):
+    def logart(self, reason, art, post, filename, trim=True):
         f = open(os.path.join(config.get('paths', 'reject'), filename), 'a')
         f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
         f.write('Info: %s\n' % reason)
@@ -525,7 +529,8 @@ class Filter():
         for hdr in post.keys():
             f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
-        if art[__LINES__] <= config.get('logging', 'logart_maxlines'):
+        if (not trim or
+          art[__LINES__] <= config.get('logging', 'logart_maxlines')):
             f.write(art[__BODY__])
         else:
             for line in str(art[__BODY__]).split('\n',
@@ -548,7 +553,7 @@ class Filter():
         self.emp_phl.statlog()
         self.emp_phn.statlog()
         self.emp_ihn.statlog()
-        # Set up bad_ Regular Expressions
+        # Set up Regular Expressions
         logging.debug('Compiling bad_from regex')
         self.bad_from = self.regex_file('bad_from')
         logging.debug('Compiling bad_groups regex')
@@ -563,6 +568,8 @@ class Filter():
         self.local_bad_from = self.regex_file('local_bad_from')
         logging.debug('Compiling local_bad_groups regex')
         self.local_bad_groups = self.regex_file('local_bad_groups')
+        logging.debug('Compiling log_from regex')
+        self.log_from = self.regex_file('log_from')
         if not startup:
             # Re-read the config file.
             configfile = os.path.join(config.get('paths', 'etc'),
