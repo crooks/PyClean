@@ -537,6 +537,13 @@ class Filter():
         self.emp_phl.statlog()
         self.emp_phn.statlog()
         self.emp_ihn.statlog()
+        # Re-read the config file.
+        configfile = os.path.join(config.get('paths', 'etc'), 'pyclean.cfg')
+        logging.info("Reloading config file: %s" % configfile)
+        if os.path.isfile(configfile):
+            config.read(configfile)
+        else:
+            logging.warn("%s: File not found" % configfile)
         # Here is a good point to check if it's time for a binary report. As
         # binary reporting only happens every 24 hours and this runs hourly.
         if pyclean.timing.now() > self.binary.get_next_report():
