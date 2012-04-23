@@ -195,6 +195,10 @@ class Binary():
         # number of binary lines.
         if long(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
+        # Also avoid these costly checks where a References header is present.
+        if (art[References] is not None and
+          config.getboolean('binary', 'fasttrack_references')):
+            return False
         # Base64 and suspect binary matching
         b64match = 0
         suspect = 0
