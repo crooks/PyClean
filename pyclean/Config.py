@@ -55,7 +55,6 @@ config.set('binary', 'lines_allowed', 15)
 config.set('binary', 'reject_all', 'false')
 config.set('binary', 'allow_pgp', 'true')
 config.set('binary', 'reject_suspected', 'false')
-config.set('binary', 'report_hours', 24)
 config.set('binary', 'fasttrack_references', 'true')
 
 # EMP

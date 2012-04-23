@@ -143,9 +143,8 @@ class Binary():
         # Feedhosts keeps a tally of how many binary articles are received
         # from each upstream peer.
         self.feedhosts = {}
-        # Initially we'll produce a binary report after an hour.  From that
-        # time on, just daily.
-        self.next_report = pyclean.timing.future(hours=1)
+        # Configure the next binary report for midnight.
+        self.next_report = pyclean.timing.next_midnight()
 
     def increment(self, pathhost):
         """Increment feedhosts."""
@@ -169,8 +168,14 @@ class Binary():
         for e in self.feedhosts.keys():
             f.write('%s: %s\n' % (e, self.feedhosts[e]))
         f.close()
-        self.next_report = \
-          pyclean.timing.future(hours=config.getint('binary', 'report_hours'))
+        # When setting the next time for this report, the following check is
+        # performed to ensure we don't pick up the same midnight as the last
+        # run. 
+        nr = pyclean.timing.next_midnight()
+        if self.next_report == nr:
+            logging.error("Next midnight identified same as last midnight.")
+        self.next_report = nr
+        # Reset the binfeeds data
         self.feedhosts = {}
 
     def isbin(self, art):
