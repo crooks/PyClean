@@ -143,8 +143,6 @@ class Binary():
         # Feedhosts keeps a tally of how many binary articles are received
         # from each upstream peer.
         self.feedhosts = {}
-        # Configure the next binary report for midnight.
-        self.next_report = pyclean.timing.next_midnight()
 
     def increment(self, pathhost):
         """Increment feedhosts."""
@@ -152,13 +150,6 @@ class Binary():
             self.feedhosts[pathhost] += 1
         else:
             self.feedhosts[pathhost] = 1
-
-    def get_next_report(self):
-        """Return the datetime object for when the next binfeed report should
-        be produced.
-
-        """
-        return self.next_report
 
     def report(self):
         fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
@@ -168,14 +159,6 @@ class Binary():
         for e in self.feedhosts.keys():
             f.write('%s: %s\n' % (e, self.feedhosts[e]))
         f.close()
-        # When setting the next time for this report, the following check is
-        # performed to ensure we don't pick up the same midnight as the last
-        # run. 
-        nr = pyclean.timing.next_midnight()
-        if self.next_report == nr:
-            logging.error("Next midnight identified same as last midnight.")
-        self.next_report = nr
-        # Reset the binfeeds data
         self.feedhosts = {}
 
     def isbin(self, art):
@@ -288,16 +271,21 @@ class Filter():
                             maxentries=config.getint('emp', 'ihn_maxentries'),
                             timedtrim=config.getint('emp', 'ihn_timed_trim'))
 
-        # Initialize bad_ Regular Expressions
-        self.timed_events(startup=True)
+        # Initialize timed events
+        self.hourly_events(startup=True)
+        # Set a datetime object for next midnight
+        self.midnight_trigger = pyclean.timing.next_midnight()
 
     def filter(self, art):
         # Initialize the posting info dict
         post = {}
 
         # Trigger timed reloads
-        if pyclean.timing.now() > self.timed_reload:
-            self.timed_events()
+        now = pyclean.timing.now()
+        if now > self.hourly_trigger:
+            self.hourly_events()
+        if now > self.midnight_trigger:
+            self.midnight_events()
 
         # Try to establish the injection-host, posting-host and
         # posting-account
@@ -544,7 +532,7 @@ class Filter():
         f.write('\n\n')
         f.close
 
-    def timed_events(self, startup=False):
+    def hourly_events(self, startup=False):
         """Carry out hourly events.  Some of these events may be to check if
         it's time to do other, less frequent events.  Timed events are also
         triggered on startup.  The "startup" flag enables special handling of
@@ -583,12 +571,21 @@ class Filter():
                 config.read(configfile)
             else:
                 logging.warn("%s: File not found" % configfile)
-            # Here is a good point to check if it's time for a binary report. As
-            # binary reporting only happens every 24 hours and this runs hourly.
-            if pyclean.timing.now() > self.binary.get_next_report():
-                self.binary.report()
         # Reset the next timed trigger.
-        self.timed_reload = pyclean.timing.future(hours=1)
+        self.hourly_trigger = pyclean.timing.future(hours=1)
+
+    def midnight_events(self):
+        """Events that need to occur at midnight each day.
+
+        """
+        self.binary.report()
+        self.emp_body.reset()
+        self.emp_fsl.reset()
+        self.emp_phl.reset()
+        self.emp_phn.reset()
+        self.emp_ihn.reset()
+        # Set the midnight trigger for next day.
+        self.midnight_trigger = pyclean.timing.next_midnight()
 
     def regex_file(self, filename):
         """Read a given file and return a regular expression composed of

@@ -128,6 +128,14 @@ class EMP():
         logmes += 'rejected=%(rejected)s'
         logging.info(logmes % self.stats)
 
+    def reset(self):
+        """Reset counters for this emp filter.
+        
+        """
+        self.stats['processed'] = 0
+        self.stats['accepted'] = 0
+        self.stats['rejected'] = 0
+
 
 if (__name__ == "__main__"):
     import random
