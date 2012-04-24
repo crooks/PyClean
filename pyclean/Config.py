@@ -140,7 +140,7 @@ makedir(config.get('paths', 'log'))
 if not config.has_option('paths', 'logart'):
     config.set('paths', 'logart', os.path.join(config.get('paths', 'log'),
                                                           'logart'))
-makedir(config.get('paths', 'reject'))
+makedir(config.get('paths', 'logart'))
 
 # The following lines can be uncommented in order to write a config file. This
 # is useful for creating an example file.

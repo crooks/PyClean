@@ -198,7 +198,7 @@ class Binary():
                 return 'yEnc'
         # Avoid costly checks where articles are shorter than the allowed
         # number of binary lines.
-        if long(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
+        if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
         # Also avoid these costly checks where a References header is present.
         if (art[References] is not None and
