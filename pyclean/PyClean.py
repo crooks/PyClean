@@ -443,10 +443,6 @@ class Filter():
             # Create a sorted Newsgroups header to prevent reordering to
             # circumvent EMP.
             ngs = ','.join(sorted(str(art[Newsgroups]).lower().split(',')))
-            # Beginning of EMP Body filter
-            if art[__BODY__] is not None:
-                if self.emp_body.add(art[__BODY__]):
-                    return self.reject("EMP Body Reject", art, post)
             # Start of posting-host based checks.
             # First try and seed some filter fodder.
             if 'posting-account' in post:
@@ -483,6 +479,11 @@ class Filter():
                 if (ihn_result and
                   self.emp_ihn.add(post['injection-host'] + ngs)):
                     return self.reject("EMP IHN Reject", art, post)
+            # Beginning of EMP Body filter.  Do this last, it's most
+            # expensive in terms of processing.
+            if art[__BODY__] is not None:
+                if self.emp_body.add(art[__BODY__]):
+                    return self.reject("EMP Body Reject", art, post)
                     
         # The article passed all checks. Return an empty string.
         return ""
