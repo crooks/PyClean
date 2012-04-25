@@ -402,7 +402,8 @@ class Filter():
 
         # Is the source of the post considered local?
         if ('injection-host' in post and self.local_hosts and
-            self.local_hosts.search(post['injection-host'])):
+          self.local_hosts.search(post['injection-host'])):
+            self.logart('Local Post', art, post, 'local_post')
             # Local Bad From
             if self.local_bad_from:
                 bf_result = self.local_bad_from.search(art[From])
