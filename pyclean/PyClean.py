@@ -371,6 +371,11 @@ class Filter():
         if self.groups['count'] > config.get('groups', 'max_crosspost'):
             return self.reject("Crosspost Limit Exceeded", art, post)
 
+        # Lines check
+        if art[Lines] and art[Lines] != art[__LINES__]:
+            logging.debug("%s: Lines header says %s but INN says %s" % \
+                        (art[Message_ID], art[Lines], art[__LINES__]))
+
         # Newsguy are evil sex spammers
         if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
             config.getboolean('filters', 'newsguy') and
