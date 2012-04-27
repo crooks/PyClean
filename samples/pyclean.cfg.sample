@@ -1,0 +1,58 @@
+[control]
+reject_cancels = false
+reject_redundant = true
+
+[binary]
+lines_allowed = 15
+allow_pgp = true
+fasttrack_references = true
+reject_suspected = false
+reject_all = false
+
+[logging]
+logart_maxlines = 20
+retain = 7
+datefmt = %Y-%m-%d %H:%M:%S
+format = %(asctime)s %(levelname)s %(message)s
+level = info
+
+[groups]
+max_crosspost = 10
+
+[paths]
+etc = /home/crooks/pyclean/etc
+logart = /home/crooks/pyclean/log/logart
+log = /home/crooks/pyclean/log
+
+[hostnames]
+path_hostname = true
+
+[emp]
+ph_coarse = true
+phl_threshold = 20
+body_threshold = 5
+ihn_ceiling = 10
+fsl_maxentries = 5000
+ihn_timed_trim = 7200
+phn_maxentries = 5000
+body_maxentries = 5000
+phl_maxentries = 5000
+phn_timed_trim = 1800
+ihn_maxentries = 1000
+body_fuzzy = yes
+body_timed_trim = 3600
+phl_timed_trim = 3600
+fsl_threshold = 20
+body_ceiling = 85
+phn_threshold = 150
+phl_ceiling = 80
+fsl_timed_trim = 3600
+fsl_ceiling = 40
+phn_ceiling = 200
+ihn_threshold = 3
+
+[filters]
+reject_html = true
+newsguy = true
+reject_multipart = false
+

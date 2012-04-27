@@ -1,0 +1,24 @@
+The following command will install the PyClean program:-
+
+	python setup.py install
+
+This will need to be run by a user with write permissions to the Python
+dist-packages directory. In most cases this will be root.  See the MANIFEST
+file for a list of the files installed.
+
+Once installed, a couple of files should be manually copied into the correct
+locations.  The filter_innd.py file in bin/filter/filter_innd.py needs to be
+replaced with the one included with this distribution.  If you want to tweak
+the behaviour of PyClean, you'll also need to copy the pyclean.cfg.sample file
+from the samples directory of this distribution to the pyclean directory and
+rename it pyclean.cfg.  On a standard installation, this path will be:
+/usr/local/news/pyclean/etc
+
+At this point, the following command can be issued to instruct INN to reload
+its configuration:
+ctlinnd reload filter.python PyClean initial load
+
+Monitor the pyclean log directory for any errors or warnings.  If something
+goes badly wrong, a traceback file will be created in this directory,
+containing details of the problem.  Please report this to steve@mixmin.net so
+I can resolve the issue.
