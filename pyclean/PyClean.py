@@ -372,9 +372,15 @@ class Filter():
             return self.reject("Crosspost Limit Exceeded", art, post)
 
         # Lines check
-        if art[Lines] and art[Lines] != art[__LINES__]:
-            logging.debug("%s: Lines header says %s but INN says %s" % \
-                        (art[Message_ID], art[Lines], art[__LINES__]))
+        if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
+            logmes = "Lines Mismatch: Header=%s, INN=%s, mid=%s"
+            if art[User_Agent] is not None:
+                logmes += ", Agent=%s"
+                logging.debug(logmes % (art[Lines], art[__LINES__],
+                                        art[Message_ID], art[User_Agent]))
+            else:
+                logging.debug(logmes % (art[Lines], art[__LINES__],
+                                        art[Message_ID]))
 
         # Newsguy are evil sex spammers
         if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
