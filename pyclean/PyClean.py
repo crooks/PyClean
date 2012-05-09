@@ -355,7 +355,8 @@ class Filter():
             ctrltype = str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
             if art[Supersedes] is not None:
-                return reject('Control %s with Supersedes header' % ctrltype)
+                return reject('Control %s with Supersedes header' % ctrltype,
+                              art, post)
             if (ctrltype == 'cancel' and
               config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
@@ -403,6 +404,11 @@ class Filter():
             bf_result = self.bad_from.search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
+                                   art, post)
+        if self.bad_body:
+            bb_result = self.bad_body.search(art[__BODY__])
+            if bb_result:
+                return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
         if ('posting-host' in post and
             not 'bad_posting-host' in post and self.bad_posthost):
@@ -502,24 +508,28 @@ class Filter():
     def reject(self, reason, art, post):
         if reason.startswith('EMP PHN'):
             self.logart(reason, art, post, 'emp.phn')
-        if reason.startswith('EMP PHL'):
+        elif reason.startswith('EMP PHL'):
             self.logart(reason, art, post, 'emp.phl')
-        if reason.startswith('EMP FSL'):
+        elif reason.startswith('EMP FSL'):
             self.logart(reason, art, post, 'emp.fsl')
-        if reason.startswith('EMP Body'):
+        elif reason.startswith('EMP Body'):
             self.logart(reason, art, post, 'emp.body')
-        if reason.startswith('EMP IHN'):
+        elif reason.startswith('EMP IHN'):
             self.logart(reason, art, post, 'emp.ihn')
-        if reason.startswith('Bad'):
+        elif reason.startswith('Bad'):
             self.logart(reason, art, post, 'bad_files')
-        if reason.startswith('Local Bad'):
+        elif reason.startswith('Local Bad'):
             self.logart(reason, art, post, 'local_bad_files')
-        if reason.startswith('Binary'):
+        elif reason.startswith('Binary'):
             self.logart(reason, art, post, 'binary')
-        if reason.startswith('HTML'):
+        elif reason.startswith('HTML'):
             self.logart(reason, art, post, 'html')
-        if reason.startswith('Crosspost'):
+        elif reason.startswith('Crosspost'):
             self.logart(reason, art, post, 'crosspost')
+        elif reason.startswith('Newsguy Sex'):
+            pass
+        else:
+            self.logart(reason, art, post, 'unclassified')
         logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
         return reason
 
@@ -565,6 +575,8 @@ class Filter():
         self.bad_groups = self.regex_file('bad_groups')
         logging.debug('Compiling bad_posthost regex')
         self.bad_posthost = self.regex_file('bad_posthost')
+        logging.debug('Compiling bad_body regex')
+        self.bad_body = self.regex_file('bad_body')
         logging.debug('Compiling ihn_hosts regex')
         self.ihn_hosts = self.regex_file('ihn_hosts')
         logging.debug('Compiling local_hosts regex')
