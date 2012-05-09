@@ -238,6 +238,8 @@ class Filter():
         self.regex_path1 = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         self.regex_path2 = re.compile('\.POSTED[^!]*$')  # Strip POSTED
         self.regex_path3 = re.compile('.*!')  # Strip all but RH path entry
+        # :HWS seperated fields
+        self.regex_fields = re.compile('[ \t]*(\w+):[ \t]+(\w+)')
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -506,31 +508,11 @@ class Filter():
         return ""
 
     def reject(self, reason, art, post):
-        if reason.startswith('EMP PHN'):
-            self.logart(reason, art, post, 'emp.phn')
-        elif reason.startswith('EMP PHL'):
-            self.logart(reason, art, post, 'emp.phl')
-        elif reason.startswith('EMP FSL'):
-            self.logart(reason, art, post, 'emp.fsl')
-        elif reason.startswith('EMP Body'):
-            self.logart(reason, art, post, 'emp.body')
-        elif reason.startswith('EMP IHN'):
-            self.logart(reason, art, post, 'emp.ihn')
-        elif reason.startswith('Bad'):
-            self.logart(reason, art, post, 'bad_files')
-        elif reason.startswith('Local Bad'):
-            self.logart(reason, art, post, 'local_bad_files')
-        elif reason.startswith('Binary'):
-            self.logart(reason, art, post, 'binary')
-        elif reason.startswith('HTML'):
-            self.logart(reason, art, post, 'html')
-        elif reason.startswith('Crosspost'):
-            self.logart(reason, art, post, 'crosspost')
-        elif reason.startswith('Newsguy Sex'):
-            pass
-        else:
-            self.logart(reason, art, post, 'unclassified')
-        logging.debug('reject: mid=%s, reason=%s' % (art[Message_ID], reason))
+        for logrule in self.log_rules.keys():
+            if reason.startswith(logrule):
+                self.logart(reason, art, post, self.log_rules[logrule])
+                break
+        logging.debug("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
         return reason
 
     def logart(self, reason, art, post, filename, trim=True):
@@ -568,6 +550,9 @@ class Filter():
         self.emp_phl.statlog()
         self.emp_phn.statlog()
         self.emp_ihn.statlog()
+        # Reload logging directives
+        logging.debug('Reloading logging directives')
+        self.log_rules = self.file2dict('log_rules')
         # Set up Regular Expressions
         logging.debug('Compiling bad_from regex')
         self.bad_from = self.regex_file('bad_from')
@@ -650,6 +635,41 @@ class Filter():
         # everything.
         regex = regex.replace('||', '|')
         return re.compile(regex)
+
+    def file2list(self, filename):
+        fqfn = os.path.join(config.get('paths', 'etc'), filename)
+        if not os.path.isfile(fqfn):
+            logging.info('%s: File not found' % filename)
+            return []
+        f = open(fqfn, 'r')
+        lines = f.readlines()
+        f.close()
+        valid = []
+        for line in lines:
+            # Strip comments (including inline)
+            content = line.split('#', 1)[0].strip()
+            # Ignore empty lines
+            if len(content) > 0:
+                valid.append(content)
+        return valid
+
+    def file2dict(self, filename, numeric=False):
+        """Read a file and split each line at the first space encountered. The
+        first element is the key, the rest is the content. If numeric is True
+        then only integer values will be acccepted."""
+        d = {}
+        for line in self.file2list(filename):
+            valid = self.regex_fields.match(line)
+            if valid:
+                k = valid.group(1)
+                c = valid.group(2)
+                if numeric:
+                    try:
+                        c = int(c)
+                    except ValueError:
+                        c = 0
+                d[k] = c
+        return d
 
 init_logging()
 
