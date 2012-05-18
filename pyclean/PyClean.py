@@ -238,12 +238,14 @@ class Filter():
         self.regex_path1 = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         self.regex_path2 = re.compile('\.POSTED[^!]*$')  # Strip POSTED
         self.regex_path3 = re.compile('.*!')  # Strip all but RH path entry
-        # :HWS seperated fields
-        self.regex_fields = re.compile('[ \t]*(\w+):[ \t]+(\w+)')
+        # Match email addresses
+        self.regex_email = \
+                re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
+        # Colon/Space seperated fields
+        self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\w+)')
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
-
 
         # Set up the EMP filters
         self.emp_body = pyclean.emp.EMP(name='emp_body',
