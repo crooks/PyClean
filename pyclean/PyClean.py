@@ -242,7 +242,7 @@ class Filter():
         self.regex_email = \
                 re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
         # Colon/Space seperated fields
-        self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\w+)')
+        self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\S+)')
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
