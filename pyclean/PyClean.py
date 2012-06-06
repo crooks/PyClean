@@ -393,6 +393,13 @@ class Filter():
             'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
 
+        # For some reason, this OS2 group has become kook central
+        if ('comp.os.os2.advocacy' in art[Newsgroups] and
+            self.groups['count'] > 1):
+            return self.reject("OS2 Crosspost", art, post)
+        if 'comp.os.os2.advocacy' in art[Followup_To]:
+            return self.reject("OS2 Followup", art, post)
+
         # Compare headers against regex files
         if self.log_from:
             lf_result = self.log_from.search(art[From])
