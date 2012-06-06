@@ -394,10 +394,12 @@ class Filter():
             return self.reject("Newsguy Sex", art, post)
 
         # For some reason, this OS2 group has become kook central
-        if ('comp.os.os2.advocacy' in art[Newsgroups] and
+        if (art[Newsgroups] and
+            'comp.os.os2.advocacy' in str(art[Newsgroups]) and
             self.groups['count'] > 1):
             return self.reject("OS2 Crosspost", art, post)
-        if 'comp.os.os2.advocacy' in art[Followup_To]:
+        if (art[Followup_To] and
+            'comp.os.os2.advocacy' in str(art[Followup_To])):
             return self.reject("OS2 Followup", art, post)
 
         # Compare headers against regex files
