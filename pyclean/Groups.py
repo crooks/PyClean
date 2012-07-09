@@ -53,6 +53,11 @@ class Groups():
         for ngelement in self.grp.keys():
             ngbool = '%s_bool' % ngelement
             self.grp[ngbool] = self.grp[ngelement] == self.grp['count']
+        # alt.usenet.kooks boolean
+        if 'alt.usenet.kooks' in nglist:
+            self.grp['auk_bool'] = True
+        else:
+            self.grp['auk_bool'] = False
 
 class Regex():
     def __init__(self):
@@ -90,8 +95,10 @@ class Regex():
 if (__name__ == "__main__"):
     groups = Groups()
     newsgroups = 'alt.test,alt.testing.testing,alt.binaries.foo'
+    newsgroups += ',alt.usenet.kooks'
     groups.analyze(newsgroups)
     print groups['test_bool']
     print groups['bin_allowed']
     print groups['bin_allowed_bool']
+    print groups['auk_bool']
 

@@ -27,6 +27,7 @@ import os.path
 import logging
 import logging.handlers
 import sys
+import email.utils
 
 
 def init_logging():
@@ -225,6 +226,9 @@ class Filter():
         # Initialize Binary Filters
         self.binary = Binary()
 
+        # Initialize the AUK posters log
+        self.batchlog_auk = BatchLog(100, "auklog")
+
         # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
@@ -290,6 +294,11 @@ class Filter():
             self.hourly_events()
         if now > self.midnight_trigger:
             self.midnight_events()
+
+        # Attempt to split the From address into component parts
+        if 'From' in art:
+            post['from_name'], \
+            post['from_email'] = email.utils.parseaddr(art['From'])
 
         # Try to establish the injection-host, posting-host and
         # posting-account
@@ -514,6 +523,14 @@ class Filter():
             if art[__BODY__] is not None:
                 if self.emp_body.add(art[__BODY__]):
                     return self.reject("EMP Body Reject", art, post)
+
+        # Filtering complete, here are some post-filter actions.
+        if (self.groups['auk_bool'] and 'injection-host' in post and
+            'Message_ID' in art and 'from_email' in post):
+            if post['from_email']:
+                self.batchlog_auk.add(from_email + "\t" +
+                                      post['injection-host'] + "\t" +
+                                      str(art['Message_ID']))
                     
         # The article passed all checks. Return an empty string.
         return ""
@@ -681,6 +698,35 @@ class Filter():
                         c = 0
                 d[k] = c
         return d
+
+
+class BatchLog():
+    """This class stacks up log-type entries until a predefined limit is
+    reached.  At that point it writes them to a file and starts again.
+
+    """
+    def __init__(self, stacksize, filename):
+        self.stacksize = stacksize
+        self.filename = filename
+        # Initialize the stack itself
+        self.stack = []
+
+    def stack_write(self):
+        f = open(os.path.join(config.get('paths', 'logart'),
+                              self.filename), 'a')
+        for entry in self.stack:
+            f.write(entry + "\n")
+        logging.info("Batchlog wrote %s entries to %s"
+                     % len(self.stack), self.filename)
+        f.close()
+        self.stack = []
+
+    def add(self, entry):
+        self.stack.append(entry)
+        if len(self.stack > self.stacksize):
+            self.stack_write()
+
+
 
 init_logging()
 
