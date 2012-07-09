@@ -699,6 +699,13 @@ class Filter():
                 d[k] = c
         return d
 
+    def closetasks(self):
+        """Things to do on filter closing.
+
+        """
+        # Write to file any entries in the stack
+        self.batchlog_auk.stack_write()
+
 
 class BatchLog():
     """This class stacks up log-type entries until a predefined limit is

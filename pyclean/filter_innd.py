@@ -54,6 +54,7 @@ class InndFilter:
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
         """
+        self.pyclean.closetasks()
         syslog('notice', "filter_close running, bye!")
 
     def filter_messageid(self, msgid):
