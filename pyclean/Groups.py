@@ -96,7 +96,7 @@ if (__name__ == "__main__"):
     groups = Groups()
     newsgroups = 'alt.test,alt.testing.testing,alt.binaries.foo'
     newsgroups += ',alt.usenet.kooks'
-    groups.analyze(newsgroups)
+    groups.analyze(buffer(newsgroups))
     print groups['test_bool']
     print groups['bin_allowed']
     print groups['bin_allowed_bool']
