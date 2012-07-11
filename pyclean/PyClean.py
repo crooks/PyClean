@@ -526,11 +526,12 @@ class Filter():
 
         # Filtering complete, here are some post-filter actions.
         if (self.groups['auk_bool'] and 'injection-host' in post and
-            'Message_ID' in art and 'from_email' in post):
+            'from_email' in post and Message_ID in art):
             if post['from_email']:
-                self.batchlog_auk.add(from_email + "\t" +
-                                      post['injection-host'] + "\t" +
-                                      str(art['Message_ID']))
+                self.batchlog_auk.add("%s\t%s\t%s"
+                                      % (post['from_email'],
+                                         post['injection-host'],
+                                         art[Message_ID]))
                     
         # The article passed all checks. Return an empty string.
         return ""
@@ -703,6 +704,7 @@ class Filter():
         """Things to do on filter closing.
 
         """
+        logging.info("Running shutdown tasks")
         # Write to file any entries in the stack
         self.batchlog_auk.stack_write()
 
@@ -724,13 +726,13 @@ class BatchLog():
         for entry in self.stack:
             f.write(entry + "\n")
         logging.info("Batchlog wrote %s entries to %s"
-                     % len(self.stack), self.filename)
+                     % (len(self.stack), self.filename))
         f.close()
         self.stack = []
 
     def add(self, entry):
         self.stack.append(entry)
-        if len(self.stack > self.stacksize):
+        if len(self.stack) > self.stacksize:
             self.stack_write()
 
 
