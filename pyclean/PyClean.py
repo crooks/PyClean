@@ -720,13 +720,16 @@ class BatchLog():
         self.stack = []
 
     def stack_write(self):
-        f = open(self.filename, 'a')
-        for entry in self.stack:
-            f.write(entry + "\n")
-        logging.info("Batchlog wrote %s entries to %s"
-                     % (len(self.stack), self.filename))
-        f.close()
-        self.stack = []
+        if len(self.stack) == 0:
+            logging.info("stack_write called but no entries to write.")
+        else:
+            f = open(self.filename, 'a')
+            for entry in self.stack:
+                f.write(entry + "\n")
+            logging.info("Batchlog wrote %s entries to %s"
+                         % (len(self.stack), self.filename))
+            f.close()
+            self.stack = []
 
     def add(self, entry):
         self.stack.append(entry)
