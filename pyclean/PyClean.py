@@ -525,13 +525,12 @@ class Filter():
                     return self.reject("EMP Body Reject", art, post)
 
         # Filtering complete, here are some post-filter actions.
-        if (self.groups['auk_bool'] and 'injection-host' in post and
-            'from_email' in post and Message_ID in art):
+        if (self.groups['auk_bool'] and 'injection-host' in post:
             if post['from_email']:
                 self.batchlog_auk.add("%s\t%s\t%s"
-                                      % (post['from_email'],
-                                         post['injection-host'],
-                                         art[Message_ID]))
+                                      % (pyclean.timing.today(),
+                                         post['from_email'],
+                                         post['injection-host']))
                     
         # The article passed all checks. Return an empty string.
         return ""
@@ -716,13 +715,12 @@ class BatchLog():
     """
     def __init__(self, stacksize, filename):
         self.stacksize = stacksize
-        self.filename = filename
+        self.filename = os.path.join(config.get('paths', 'log'), filename)
         # Initialize the stack itself
         self.stack = []
 
     def stack_write(self):
-        f = open(os.path.join(config.get('paths', 'logart'),
-                              self.filename), 'a')
+        f = open(self.filename, 'a')
         for entry in self.stack:
             f.write(entry + "\n")
         logging.info("Batchlog wrote %s entries to %s"
