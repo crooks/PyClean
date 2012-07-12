@@ -21,6 +21,7 @@ import re
 import logging
 from collections import defaultdict
 
+
 class Groups():
     def __init__(self):
         self.regex = Regex()
@@ -59,21 +60,22 @@ class Groups():
         else:
             self.grp['auk_bool'] = False
 
+
 class Regex():
     def __init__(self):
         # Test groups
-        test =  ['\.test(ing)?(?:$|\.)',
-                 '^es\.pruebas',
-                 '^borland\.public\.test2',
-                 '^cern\.testnews']
+        test = ['\.test(ing)?(?:$|\.)',
+                '^es\.pruebas',
+                '^borland\.public\.test2',
+                '^cern\.testnews']
         self.test = self.regex_compile(test)
         # Binary groups
-        bin_allowed = ['^bin[a.]','\.bin[aei.]','\.bin$','^fur\.artwork',
-                       '^alt\.anonymous\.messages$','^de\.alt\.dateien',
-                       '^rec\.games\.bolo$','^comp\.security\.pgp\.test$',
-                       '^sfnet\.tiedostot','^fido\.','^unidata\.',
-                       '^alt\.security\.keydist','^linux\.debian\.bugs\.dist$',
-                       '^lucky\.freebsd']
+        bin_allowed = ['^bin[a.]', '\.bin[aei.]', '\.bin$', '^fur\.artwork',
+                       '^alt\.anonymous\.messages$', '^de\.alt\.dateien',
+                       '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
+                       '^sfnet\.tiedostot', '^fido\.', '^unidata\.',
+                       '^alt\.security\.keydist',
+                       '^linux\.debian\.bugs\.dist$', '^lucky\.freebsd']
         self.bin_allowed = self.regex_compile(bin_allowed)
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
         self.html_allowed = self.regex_compile(html_allowed)
@@ -85,7 +87,7 @@ class Regex():
         ihn_exclude = ['^alt\.anonymous', '^alt\.privacy']
         self.ihn_exclude = self.regex_compile(ihn_exclude)
         # Bad posting-hosts
-        bad_ph = ['newsguy\.com','tornevall\.net']
+        bad_ph = ['newsguy\.com', 'tornevall\.net']
         self.bad_ph = self.regex_compile(bad_ph)
 
     def regex_compile(self, regexlist):
@@ -101,4 +103,3 @@ if (__name__ == "__main__"):
     print groups['bin_allowed']
     print groups['bin_allowed_bool']
     print groups['auk_bool']
-

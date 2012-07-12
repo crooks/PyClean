@@ -19,34 +19,43 @@
 
 import datetime
 
+
 def future(days=0, hours=0, mins=0, secs=0):
     return now() + datetime.timedelta(days=days, hours=hours,
                                       minutes=mins, seconds=secs)
 
+
 def timestamp(stamp):
     return stamp.strftime("%Y-%m-%d %H:%M:%S")
 
+
 def datestamp(stamp):
     return stamp.strftime("%Y-%m-%d")
+
 
 def dateobj(datestr):
     """Take a string formated date (yyyymmdd) and return a datetime object."""
     return datetime.datetime.strptime(datestr, '%Y%m%d')
 
+
 def now():
     return datetime.datetime.utcnow()
     #return datetime.datetime.now()
+
 
 def nowstamp():
     """A shortcut function to return a textual representation of now."""
     return timestamp(now())
 
+
 def today():
     """Return a string representation of today's date."""
     return datestamp(now())
 
+
 def last_midnight():
     return now().replace(hour=0, minute=0, second=0, microsecond=0)
+
 
 def next_midnight():
     """Return a datetime object relating to the next midnight.

@@ -21,6 +21,7 @@ import ConfigParser
 import os
 import sys
 
+
 def makedir(d):
     """Check if a given directory exists.  If it doesn't, check if the parent
     exists.  If it does then the new directory will be created.  If not then
@@ -145,4 +146,3 @@ makedir(config.get('paths', 'logart'))
 # is useful for creating an example file.
 #with open('example.cfg', 'wb') as configfile:
 #    config.write(configfile)
-

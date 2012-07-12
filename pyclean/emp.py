@@ -130,7 +130,7 @@ class EMP():
 
     def reset(self):
         """Reset counters for this emp filter.
-        
+
         """
         self.stats['processed'] = 0
         self.stats['accepted'] = 0

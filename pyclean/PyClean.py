@@ -46,6 +46,7 @@ def init_logging():
     logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
     logging.getLogger().addHandler(logfile)
 
+
 ##  The built-in intern() method has been in the sys module
 ##  since Python 3.0.
 if sys.version_info[0] >= 3:
@@ -212,6 +213,7 @@ class Binary():
                     logging.info('Suspect binary: %s' % art[Message_ID])
                 break
         return False
+
 
 class Filter():
     def __init__(self):
@@ -531,7 +533,7 @@ class Filter():
                                       % (pyclean.timing.today(),
                                          post['from_email'],
                                          post['injection-host']))
-                    
+
         # The article passed all checks. Return an empty string.
         return ""
 
@@ -735,7 +737,6 @@ class BatchLog():
         self.stack.append(entry)
         if len(self.stack) >= self.stacksize:
             self.stack_write()
-
 
 
 init_logging()
