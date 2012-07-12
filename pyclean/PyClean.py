@@ -525,7 +525,7 @@ class Filter():
                     return self.reject("EMP Body Reject", art, post)
 
         # Filtering complete, here are some post-filter actions.
-        if (self.groups['auk_bool'] and 'injection-host' in post:
+        if self.groups['auk_bool'] and 'injection-host' in post:
             if post['from_email']:
                 self.batchlog_auk.add("%s\t%s\t%s"
                                       % (pyclean.timing.today(),
@@ -730,7 +730,7 @@ class BatchLog():
 
     def add(self, entry):
         self.stack.append(entry)
-        if len(self.stack) > self.stacksize:
+        if len(self.stack) >= self.stacksize:
             self.stack_write()
 
 
