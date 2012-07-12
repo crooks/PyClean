@@ -41,13 +41,15 @@ def nowstamp():
     """A shortcut function to return a textual representation of now."""
     return timestamp(now())
 
+def today():
+    """Return a string representation of today's date."""
+    return datestamp(now())
+
 def last_midnight():
     return now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 def next_midnight():
-    """Return a datetime object relating to the next midnight.  This is a
-    slight cheat as we return a microsecond before midnight as that saves
-    working out if it's the end of the month/year.
+    """Return a datetime object relating to the next midnight.
 
     """
     return last_midnight() + datetime.timedelta(days=1)
