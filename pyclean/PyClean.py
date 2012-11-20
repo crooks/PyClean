@@ -527,12 +527,12 @@ class Filter():
                     return self.reject("EMP Body Reject", art, post)
 
         # Filtering complete, here are some post-filter actions.
-        if self.groups['auk_bool'] and 'injection-host' in post:
-            if post['from_email']:
-                self.batchlog_auk.add("%s\t%s\t%s"
-                                      % (pyclean.timing.today(),
-                                         post['from_email'],
-                                         post['injection-host']))
+        if (self.groups['auk_bool'] and 'injection-host' in post and
+            post['from_email']):
+            self.batchlog_auk.add("%s,%s,%s"
+                    % (pyclean.timing.nowstamp(),
+                       post['from_email'],
+                       post['injection-host'].replace(',', '_')))
 
         # The article passed all checks. Return an empty string.
         return ""
