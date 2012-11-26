@@ -104,13 +104,10 @@ class EMP():
         zero, delete the hash entry.
 
         """
+        # As the EMP table is about to be modified, oldsize records it prior
+        # to doing any changes.  This is only used for reporting purposes.
         self.stats['oldsize'] = len(self.table)
         for h in self.table.keys():
-            if self.table[h] >= self.stats['ceiling']:
-                logging.info('%s: Ceiling (%s) hit for hash %s' % \
-                                (self.stats['name'],
-                                 self.stats['ceiling'],
-                                 h.encode('hex')))
             self.table[h] -= 1
             if self.table[h] <= 0:
                 del self.table[h]
