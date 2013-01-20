@@ -365,6 +365,14 @@ class Filter():
 
         ## --- Everything below is accept / reject code ---
 
+        # Reject any messages that don't have a Message-ID
+        if not Message_ID in art:
+            logging.warn("Wot no Message-ID!  Rejecting message because the "
+                         "implications of accepting it are unpredictable.")
+            return self.reject("No Message-ID header", art, post)
+        # We use Message-ID strings so much, it's useful to have a shortcut.
+        mid = str(art[Message_ID])
+
         #TODO Control message handling still needs to be written
         if art[Control] is not None:
             ctrltype = str(art[Control]).split(" ", 1)[0]
@@ -379,8 +387,7 @@ class Filter():
               config.getboolean('control', 'reject_redundant')):
                 return reject("Redundant Control Type: %s" % ctrltype)
             else:
-                logging.info('Control: %s, mid=%s' % (art[Control],
-                                                      art[Message_ID]))
+                logging.info('Control: %s, mid=%s' % (art[Control], mid))
             return ''
 
         # Max-crosspost check
@@ -393,13 +400,12 @@ class Filter():
             if art[User_Agent] is not None:
                 logmes += ", Agent=%s"
                 logging.debug(logmes % (art[Lines], art[__LINES__],
-                                        art[Message_ID], art[User_Agent]))
+                                        mid, art[User_Agent]))
             else:
-                logging.debug(logmes % (art[Lines], art[__LINES__],
-                                        art[Message_ID]))
+                logging.debug(logmes % (art[Lines], art[__LINES__], mid))
 
         # Newsguy are evil sex spammers
-        if (art[Message_ID] and 'newsguy.com' in str(art[Message_ID]) and
+        if ('newsguy.com' in mid and
             config.getboolean('filters', 'newsguy') and
             'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
@@ -476,7 +482,7 @@ class Filter():
                 if config.getboolean('filters', 'reject_multipart'):
                     return self.reject("MIME Multpart", art, post)
                 else:
-                    logging.info('Multipart: %s' % art[Message_ID])
+                    logging.info('Multipart: %s' % mid)
 
         # Start of EMP checks
         if (not self.groups['emp_exclude_bool'] and
