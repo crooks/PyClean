@@ -75,7 +75,7 @@ class EMP():
         # Bail out if the byte length of the content isn't sufficient for
         # generating an effective, unique hash.
         if len(content) < self.stats['minchars']:
-            logging.info("Insufficient bytes in %s hash fodder.  "
+            logging.debug("Insufficient bytes in %s hash fodder.  "
                          "Received=%s, Required=%s, Fodder=%s, MID=%s",
                          self.stats['name'], len(content),
                          self.stats['minchars'], content, mid)
