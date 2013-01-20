@@ -29,7 +29,6 @@ class EMP():
                        ceiling=100,
                        maxentries=5000,
                        timedtrim=3600,
-                       minchars=10,
                        dofuzzy=False,
                        name=False):
         # Statistics relating to this EMP instance
@@ -50,7 +49,6 @@ class EMP():
                       'ceiling':    ceiling,
                       'maxentries': maxentries,
                       'timedtrim':  timedtrim,
-                      'minchars':   minchars,
                       'dofuzzy':    dofuzzy}
         logmes = '%(name)s initialized. '
         logmes += 'threshold=%(threshold)s, '
@@ -74,11 +72,9 @@ class EMP():
 
         # Bail out if the byte length of the content isn't sufficient for
         # generating an effective, unique hash.
-        if len(content) < self.stats['minchars']:
-            logging.debug("Insufficient bytes in %s hash fodder.  "
-                         "Received=%s, Required=%s, Fodder=%s, MID=%s",
-                         self.stats['name'], len(content),
-                         self.stats['minchars'], content, mid)
+        if len(content) < 1:
+            logging.debug("Null content in %s hashing fodder.  MID=%s",
+                         self.stats['name'], mid)
             return False
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
