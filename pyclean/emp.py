@@ -87,9 +87,11 @@ class EMP():
         if h in self.table:
             # When the ceiling is reached, stop incrementing the count.
             if self.table[h] < self.stats['ceiling']:
+                self.table[h] += 1
+            else:
                 logging.info("%s hash ceiling exceeded by Message-ID: %s",
                              self.stats['name'], mid)
-                self.table[h] += 1
+
         else:
             # See if it's time to perform a trim.  We only care about doing
             # this when a new entry is being made.

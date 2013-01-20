@@ -378,14 +378,14 @@ class Filter():
             ctrltype = str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
             if art[Supersedes] is not None:
-                return reject('Control %s with Supersedes header' % ctrltype,
+                return self.reject('Control %s with Supersedes header' % ctrltype,
                               art, post)
             if (ctrltype == 'cancel' and
               config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
             elif (ctrltype in self.redundant_controls and
               config.getboolean('control', 'reject_redundant')):
-                return reject("Redundant Control Type: %s" % ctrltype)
+                return self.reject("Redundant Control Type: %s" % ctrltype)
             else:
                 logging.info('Control: %s, mid=%s' % (art[Control], mid))
             return ''
