@@ -510,26 +510,26 @@ class Filter():
                 fodder = None
             if fodder:
                 # Beginning of PHN filter
-                if self.emp_phn.add(fodder + ngs):
+                if self.emp_phn.add(fodder + ngs, mid):
                     return self.reject("EMP PHN Reject", art, post)
                 # Beginning of PHL filter
-                if self.emp_phl.add(fodder + str(art[__LINES__])):
+                if self.emp_phl.add(fodder + str(art[__LINES__]), mid):
                     return self.reject("EMP PHL Reject", art, post)
             # Beginning of FSL filter
             fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
-            if self.emp_fsl.add(fsl):
+            if self.emp_fsl.add(fsl, mid):
                 return self.reject("EMP FSL Reject", art, post)
             # Beginning of IHN filter
             if ('injection-host' in post and
                 not self.groups['ihn_exclude_bool']):
                 ihn_result = self.ihn_hosts.search(post['injection-host'])
                 if (ihn_result and
-                  self.emp_ihn.add(post['injection-host'] + ngs)):
+                  self.emp_ihn.add(post['injection-host'] + ngs, mid)):
                     return self.reject("EMP IHN Reject", art, post)
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
             if art[__BODY__] is not None:
-                if self.emp_body.add(art[__BODY__]):
+                if self.emp_body.add(art[__BODY__], mid):
                     return self.reject("EMP Body Reject", art, post)
 
         # Filtering complete, here are some post-filter actions.

@@ -29,6 +29,7 @@ class EMP():
                        ceiling=100,
                        maxentries=5000,
                        timedtrim=3600,
+                       minchars=10,
                        dofuzzy=False,
                        name=False):
         # Statistics relating to this EMP instance
@@ -49,6 +50,7 @@ class EMP():
                       'ceiling':    ceiling,
                       'maxentries': maxentries,
                       'timedtrim':  timedtrim,
+                      'minchars':   minchars,
                       'dofuzzy':    dofuzzy}
         logmes = '%(name)s initialized. '
         logmes += 'threshold=%(threshold)s, '
@@ -57,9 +59,10 @@ class EMP():
         logmes += 'timedtrim=%(timedtrim)s'
         logging.info(logmes % self.stats)
 
-    def add(self, content):
+    def add(self, content, mid):
         """The content, in this context, is any string we want to hash and
-        check for EMP collisions.
+        check for EMP collisions.  In various places we refer to it as
+        'hash fodder'.
 
         """
         self.stats['processed'] += 1
@@ -71,7 +74,11 @@ class EMP():
 
         # Bail out if the byte length of the content isn't sufficient for
         # generating an effective, unique hash.
-        if len(content) < 10:
+        if len(content) < self.stats['minchars']:
+            logging.info("Insufficient bytes in %s hash fodder.  "
+                         "Received=%s, Required=%s, Fodder=%s, MID=%s",
+                         self.stats['name'], len(content),
+                         self.stats['minchars'], content, mid)
             return False
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
@@ -80,6 +87,8 @@ class EMP():
         if h in self.table:
             # When the ceiling is reached, stop incrementing the count.
             if self.table[h] < self.stats['ceiling']:
+                logging.info("%s hash ceiling exceeded by Message-ID: %s",
+                             self.stats['name'], mid)
                 self.table[h] += 1
         else:
             # See if it's time to perform a trim.  We only care about doing
@@ -148,6 +157,6 @@ if (__name__ == "__main__"):
         randstring += 'xxxxx xxx xxxx'
         if iters % 10000 == 0:
             sys.stdout.write('Doing iteration %s\n' % iters)
-        if emp.add(randstring):
+        if emp.add(randstring, 'Fake Message-ID'):
             sys.stdout.write('Collision on %s\n' % randstring)
         iters += 1
