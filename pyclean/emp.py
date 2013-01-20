@@ -57,7 +57,7 @@ class EMP():
         logmes += 'timedtrim=%(timedtrim)s'
         logging.info(logmes % self.stats)
 
-    def add(self, content, mid):
+    def add(self, content):
         """The content, in this context, is any string we want to hash and
         check for EMP collisions.  In various places we refer to it as
         'hash fodder'.
@@ -73,8 +73,8 @@ class EMP():
         # Bail out if the byte length of the content isn't sufficient for
         # generating an effective, unique hash.
         if len(content) < 1:
-            logging.debug("Null content in %s hashing fodder.  MID=%s",
-                         self.stats['name'], mid)
+            logging.debug("Null content in %s hashing fodder.",
+                          self.stats['name'])
             return False
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
@@ -85,8 +85,8 @@ class EMP():
             if self.table[h] < self.stats['ceiling']:
                 self.table[h] += 1
             else:
-                logging.info("%s hash ceiling exceeded by Message-ID: %s",
-                             self.stats['name'], mid)
+                logging.debug("%s hash ceiling hit. Not incrementing counter.",
+                              self.stats['name'])
 
         else:
             # See if it's time to perform a trim.  We only care about doing
@@ -119,18 +119,17 @@ class EMP():
             if self.table[h] <= 0:
                 del self.table[h]
         self.stats['size'] = len(self.table)
-        logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s' \
-                     % self.stats)
+        logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s',
+                     self.stats)
         self.stats['nexttrim'] = \
                     pyclean.timing.future(secs=self.stats['timedtrim'])
 
     def statlog(self):
         """Log details of the EMP hash."""
         self.stats['size'] = len(self.table)
-        logmes = '%(name)s: size=%(size)s, '
-        logmes += 'processed=%(processed)s, accepted=%(accepted)s, '
-        logmes += 'rejected=%(rejected)s'
-        logging.info(logmes % self.stats)
+        logging.info("%(name)s: size=%(size)s, processed=%(processed)s, "
+                     "accepted=%(accepted)s, rejected=%(rejected)s",
+                     self.stats)
 
     def reset(self):
         """Reset counters for this emp filter.
@@ -155,6 +154,6 @@ if (__name__ == "__main__"):
         randstring += 'xxxxx xxx xxxx'
         if iters % 10000 == 0:
             sys.stdout.write('Doing iteration %s\n' % iters)
-        if emp.add(randstring, 'Fake Message-ID'):
+        if emp.add(randstring):
             sys.stdout.write('Collision on %s\n' % randstring)
         iters += 1

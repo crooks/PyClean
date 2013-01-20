@@ -378,8 +378,8 @@ class Filter():
             ctrltype = str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
             if art[Supersedes] is not None:
-                return self.reject('Control %s with Supersedes header' % ctrltype,
-                              art, post)
+                return self.reject('Control %s with Supersedes header'
+                                   % ctrltype, art, post)
             if (ctrltype == 'cancel' and
               config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
@@ -510,26 +510,26 @@ class Filter():
                 fodder = None
             if fodder:
                 # Beginning of PHN filter
-                if self.emp_phn.add(fodder + ngs, mid):
+                if self.emp_phn.add(fodder + ngs):
                     return self.reject("EMP PHN Reject", art, post)
                 # Beginning of PHL filter
-                if self.emp_phl.add(fodder + str(art[__LINES__]), mid):
+                if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject("EMP PHL Reject", art, post)
             # Beginning of FSL filter
             fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
-            if self.emp_fsl.add(fsl, mid):
+            if self.emp_fsl.add(fsl):
                 return self.reject("EMP FSL Reject", art, post)
             # Beginning of IHN filter
             if ('injection-host' in post and
                 not self.groups['ihn_exclude_bool']):
                 ihn_result = self.ihn_hosts.search(post['injection-host'])
                 if (ihn_result and
-                  self.emp_ihn.add(post['injection-host'] + ngs, mid)):
+                  self.emp_ihn.add(post['injection-host'] + ngs)):
                     return self.reject("EMP IHN Reject", art, post)
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
             if art[__BODY__] is not None:
-                if self.emp_body.add(art[__BODY__], mid):
+                if self.emp_body.add(art[__BODY__]):
                     return self.reject("EMP Body Reject", art, post)
 
         # Filtering complete, here are some post-filter actions.
