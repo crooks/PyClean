@@ -241,9 +241,7 @@ class Filter():
         hostname2 = '(\.[a-zA-Z0-9\-]+)+'
         self.regex_hostname = re.compile(hostname1 + hostname2)
         # Path replacement regexs
-        self.regex_path1 = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
-        self.regex_path2 = re.compile('\.POSTED[^!]*$')  # Strip POSTED
-        self.regex_path3 = re.compile('.*!')  # Strip all but RH path entry
+        self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         # Match email addresses
         self.regex_email = \
                 re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
@@ -331,13 +329,19 @@ class Filter():
                 #logging.debug('Injection-Host (from XT): %s' % ih)
 
         # Try to extract a hostname from the Path header
-        if (not 'injection-host' in post and
-          config.getboolean('hostnames', 'path_hostname')):
-            sub1 = re.sub(self.regex_path1, '', art[Path])
-            sub2 = re.sub(self.regex_path2, '', sub1)
-            sub3 = re.sub(self.regex_path3, '', sub2)
-            if self.regex_hostname.match(sub3):
-                post['injection-host'] = sub3
+        if config.getboolean('hostnames', 'path_hostname'):
+            # First, check for a !.POSTED tag, as per RFC5537
+            if not 'injection-host' in post and "!.POSTED" in path:
+                postsplit = path.split("!.POSTED", 1)
+                pathhost = postsplit[0].split("!")[-1]
+                if pathhost:
+                    post['injection-host'] = pathhost
+            # Last resort, try the right-most entry in the Path header
+            if not 'injection-host' in post:
+                subhost = re.sub(self.regex_pathhost, '', art[Path])
+                pathhost = subhost.split("!")[-1]
+                if pathhost:
+                    post['injection-host'] = pathhost
 
         # Special case for Google who use loads of injection-hosts
         if ('injection-host' in post and
