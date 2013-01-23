@@ -322,17 +322,17 @@ class Filter():
 
         # If the injection-host wasn't found in Injection-Info, try the
         # X-Trace header
-        if not 'injection-host' in post and art[X_Trace] is not None:
-            isih = self.regex_hostname.search(art[X_Trace])
-            if isih:
-                post['injection-host'] = isih.group(0)
+        #if not 'injection-host' in post and art[X_Trace] is not None:
+        #    isih = self.regex_hostname.search(art[X_Trace])
+        #    if isih:
+        #        post['injection-host'] = isih.group(0)
                 #logging.debug('Injection-Host (from XT): %s' % ih)
 
         # Try to extract a hostname from the Path header
         if config.getboolean('hostnames', 'path_hostname'):
             # First, check for a !.POSTED tag, as per RFC5537
-            if not 'injection-host' in post and "!.POSTED" in path:
-                postsplit = path.split("!.POSTED", 1)
+            if not 'injection-host' in post and "!.POSTED" in art[Path]:
+                postsplit = art[Path].split("!.POSTED", 1)
                 pathhost = postsplit[0].split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
