@@ -320,12 +320,13 @@ class Filter():
         if not 'posting-host' in post and art[NNTP_Posting_Host] is not None:
             post['posting-host'] = str(art[NNTP_Posting_Host])
 
-        # If the injection-host wasn't found in Injection-Info, try the
-        # X-Trace header
-        #if not 'injection-host' in post and art[X_Trace] is not None:
-        #    isih = self.regex_hostname.search(art[X_Trace])
-        #    if isih:
-        #        post['injection-host'] = isih.group(0)
+        # If the injection-host wasn't found in Injection-Info, try the X-Trace
+        # header.  We only look for a hostname as the first field in X-Trace,
+        # otherwise it's regex hell.
+        if not 'injection-host' in post and art[X_Trace] is not None:
+            isih = self.regex_hostname.match(art[X_Trace])
+            if isih:
+                post['injection-host'] = isih.group(0)
                 #logging.debug('Injection-Host (from XT): %s' % ih)
 
         # Try to extract a hostname from the Path header
