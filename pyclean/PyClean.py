@@ -237,9 +237,9 @@ class Filter():
         # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
         self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
         # Hostname - Not a 100% perfect regex but probably good enough.
-        hostname1 = '([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]+[a-zA-Z0-9])'
-        hostname2 = '(\.[a-zA-Z0-9\-]+)+'
-        self.regex_hostname = re.compile(hostname1 + hostname2)
+        self.regex_hostname = re.compile('([a-zA-Z0-9]|[a-zA-Z0-9]'
+                                         '[a-zA-Z0-9\-]+[a-zA-Z0-9])'
+                                         '(\.[a-zA-Z0-9\-]+)+')
         # Path replacement regexs
         self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         # Match email addresses
