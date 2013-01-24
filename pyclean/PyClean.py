@@ -332,8 +332,8 @@ class Filter():
         # Try to extract a hostname from the Path header
         if config.getboolean('hostnames', 'path_hostname'):
             # First, check for a !.POSTED tag, as per RFC5537
-            if not 'injection-host' in post and "!.POSTED" in art[Path]:
-                postsplit = art[Path].split("!.POSTED", 1)
+            if not 'injection-host' in post and "!.POSTED" in str(art[Path]):
+                postsplit = str(art[Path]).split("!.POSTED", 1)
                 pathhost = postsplit[0].split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
@@ -344,14 +344,15 @@ class Filter():
                 if pathhost:
                     post['injection-host'] = pathhost
 
-        # Special case for Google who use loads of injection-hosts
-        if ('injection-host' in post and
-          post['injection-host'].endswith('googlegroups.com')):
-            post['injection-host'] = 'googlegroups.com'
-        # Jobcircle use numerous posting hosts, perhaps to circumvent EMP?
-        if ('posting-host' in post and
-          post['posting-host'].endswith('jobcircle.com')):
-            post['posting-host'] = 'jobcircle.com'
+        # Some services (like Google) use dozens of Injection Hostnames.
+        # This section looks for substring matches and replaces the entire
+        # Injection-Host with the substring.
+        if 'injection-host' in post:
+            for ihsub in self.ihsubs:
+                if ihsub in post['injection-host']:
+                    logging.debug("Injection-Host: Replacing %s with %s",
+                                  post['injection-host'], ihsub)
+                    post['injection-host'] = ihsub
 
         # Ascertain if the posting-host is meaningful
         if 'posting-host' in post:
@@ -594,6 +595,9 @@ class Filter():
         # Reload logging directives
         logging.debug('Reloading logging directives')
         self.log_rules = self.file2dict('log_rules')
+        # Reload Injection-Host substrings
+        logging.debug('Reloading Injection-Host substrings')
+        self.ihsubs = self.file2list('ih_substrings')
         # Set up Regular Expressions
         logging.debug('Compiling bad_from regex')
         self.bad_from = self.regex_file('bad_from')
