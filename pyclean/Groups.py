@@ -20,6 +20,7 @@
 import re
 import logging
 from collections import defaultdict
+import INN
 
 
 class Groups():
@@ -49,6 +50,8 @@ class Groups():
                 self.grp['ihn_exclude'] += 1
             if self.regex.html_allowed.search(ng):
                 self.grp['html_allowed'] += 1
+            if INN.newsgroup(ng) == 'm':
+                self.grp['moderated'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
         for ngelement in self.grp.keys():
