@@ -47,7 +47,7 @@ class Groups():
                 self.grp['emp_exclude'] += 1
             if self.regex.ihn_exclude.search(ng):
                 self.grp['ihn_exclude'] += 1
-            if self.regex.bin_allowed.search(ng):
+            if self.regex.html_allowed.search(ng):
                 self.grp['html_allowed'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
