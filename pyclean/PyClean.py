@@ -586,7 +586,7 @@ class Filter():
         this instance.
 
         """
-        logging.debug('Performing timed events')
+        logging.info('Performing hourly tasks')
         self.emp_body.statlog()
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
@@ -633,6 +633,7 @@ class Filter():
         """Events that need to occur at midnight each day.
 
         """
+        logging.info('Performing midnight tasks')
         self.binary.report()
         self.emp_body.reset()
         self.emp_fsl.reset()
