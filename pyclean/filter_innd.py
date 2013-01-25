@@ -17,11 +17,20 @@
 ##   - set_filter_hook(instance)
 ##   - syslog(level, message)
 
+import INN
 from pyclean.Config import config
+import pyclean.timing
+
+import re
 import os.path
 import traceback
-import pyclean.PyClean
-#from string import *
+import logging
+import logging.handlers
+import sys
+import email.utils
+import hashlib
+from collections import defaultdict
+
 
 class InndFilter:
     """Provide filtering callbacks to innd."""
@@ -33,7 +42,7 @@ class InndFilter:
 
         """
         try:
-            self.pyclean = pyclean.PyClean.Filter()
+            self.pyfilter = Filter()
         except:
             fn = os.path.join(config.get('paths', 'log'), 'init_traceback')
             f = open(fn, 'a')
@@ -46,7 +55,7 @@ class InndFilter:
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
         """
-        reload(pyclean.PyClean)
+        return ""
 
     def filter_close(self):
         """Runs when innd exits.
@@ -55,15 +64,14 @@ class InndFilter:
         restored by the __init__() method or down in the main module.
         """
         try:
-            self.pyclean.closetasks()
+            self.pyfilter.closetasks()
         except:
             fn = os.path.join(config.get('paths', 'log'), 'close_traceback')
             f = open(fn, 'a')
             traceback.print_exc(file=f)
             f.close()
             return ""
-
-        syslog('notice', "filter_close running, bye!")
+        INN.syslog('notice', "filter_close running, bye!")
 
     def filter_messageid(self, msgid):
         """Filter articles just by their Message-IDs.
@@ -119,7 +127,7 @@ class InndFilter:
 
         """
         try:
-            return self.pyclean.filter(art)
+            return self.pyfilter.filter(art)
         except:
             fn = os.path.join(config.get('paths', 'log'), 'traceback')
             f = open(fn, 'a')
@@ -140,60 +148,929 @@ class InndFilter:
         'unknown'.  Actually 'unknown' shouldn't happen; it's there
         in case feeping creatures invade innd.
         """
-        syslog('n', 'state change from %s to %s - %s'
-               % (oldmode, newmode, reason))
+        INN.syslog('n', 'state change from %s to %s - %s'
+                        % (oldmode, newmode, reason))
 
+
+class Binary():
+    def __init__(self):
+        # Binaries
+        self.regex_yenc = re.compile('^=ybegin.*', re.M)
+        self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
+        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
+        self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
+        # Feedhosts keeps a tally of how many binary articles are received
+        # from each upstream peer.
+        self.feedhosts = {}
+
+    def increment(self, pathhost):
+        """Increment feedhosts."""
+        if pathhost in self.feedhosts:
+            self.feedhosts[pathhost] += 1
+        else:
+            self.feedhosts[pathhost] = 1
+
+    def report(self):
+        fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
+        f = open(fn, 'w')
+        f.write('# Binary feeders report - %s\n\n' % \
+                                            pyclean.timing.nowstamp())
+        for e in self.feedhosts.keys():
+            f.write('%s: %s\n' % (e, self.feedhosts[e]))
+        f.close()
+        self.feedhosts = {}
+
+    def isbin(self, art):
+        """The primary function of the Binary class.  An article's body is
+        compared against a number of checks.  If the conclusion is that the
+        payload is binary, the type of binary is returned.  Non-binary content
+        will return False.
+
+        """
+        # Ignore base64 encoded content.
+        if 'base64' in str(art[Content_Transfer_Encoding]).lower():
+            return False
+        if self.regex_uuenc.search(art[__BODY__]):
+            return 'uuEnc'
+        yenc = self.regex_yenc.search(art[__BODY__])
+        if yenc:
+            # Extract the matching line
+            l = yenc.group(0)
+            if 'line=' in l and 'size=' in l and 'name=' in l:
+                return 'yEnc'
+        # Avoid costly checks where articles are shorter than the allowed
+        # number of binary lines.
+        if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
+            return False
+        # Also avoid these costly checks where a References header is present.
+        if (art[References] is not None and
+          config.getboolean('binary', 'fasttrack_references')):
+            return False
+        # Base64 and suspect binary matching
+        b64match = 0
+        suspect = 0
+        for line in str(art[__BODY__]).split('\n'):
+            if (line.startswith('-----BEGIN PGP') and
+                config.getboolean('binary', 'allow_pgp')):
+                break
+            if self.regex_base64.match(line):
+                b64match += 1
+            else:
+                b64match = 0
+            if self.regex_binary.match(line):
+                suspect += 1
+            else:
+                suspect = 0
+            if b64match > config.get('binary', 'lines_allowed'):
+                return 'base64'
+            if suspect > config.get('binary', 'lines_allowed'):
+                if config.getboolean('binary', 'reject_suspected'):
+                    return 'binary'
+                else:
+                    logging.info('Suspect binary: %s' % art[Message_ID])
+                break
+        return False
+
+
+class Filter():
+    def __init__(self):
+        """This runs every time the filter is loaded or reloaded.
+        This is a good place to initialize variables and precompile
+        regular expressions, or maybe reload stats from disk.
+
+        """
+
+        # Initialize Group Analizer
+        self.groups = Groups()
+        # Initialize Binary Filters
+        self.binary = Binary()
+
+        # Initialize the AUK posters log
+        self.batchlog_auk = BatchLog(100, "auklog")
+
+        # Posting Host and Posting Account
+        self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
+        self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
+        # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
+        self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
+        # Hostname - Not a 100% perfect regex but probably good enough.
+        self.regex_hostname = re.compile('([a-zA-Z0-9]|[a-zA-Z0-9]'
+                                         '[a-zA-Z0-9\-]+[a-zA-Z0-9])'
+                                         '(\.[a-zA-Z0-9\-]+)+')
+        # Path replacement regexs
+        self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
+        # Match email addresses
+        self.regex_email = \
+                re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
+        # Colon/Space seperated fields
+        self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\S+)')
+        # Redundant control message types
+        self.redundant_controls = ['sendsys', 'senduuname', 'version',
+                                   'whogets']
+
+        # Set up the EMP filters
+        self.emp_body = EMP(name='emp_body',
+                            threshold=config.getint('emp', 'body_threshold'),
+                            ceiling=config.getint('emp', 'body_ceiling'),
+                            maxentries=config.getint('emp', 'body_maxentries'),
+                            timedtrim=config.getint('emp', 'body_timed_trim'),
+                            dofuzzy=config.getboolean('emp', 'body_fuzzy'))
+        self.emp_phn = EMP(name='emp_phn',
+                           threshold=config.getint('emp', 'phn_threshold'),
+                           ceiling=config.getint('emp', 'phn_ceiling'),
+                           maxentries=config.getint('emp', 'phn_maxentries'),
+                           timedtrim=config.getint('emp', 'phn_timed_trim'))
+        self.emp_phl = EMP(name='emp.phl',
+                           threshold=config.getint('emp', 'phl_threshold'),
+                           ceiling=config.getint('emp', 'phl_ceiling'),
+                           maxentries=config.getint('emp', 'phl_maxentries'),
+                           timedtrim=config.getint('emp', 'phl_timed_trim'))
+        self.emp_fsl = EMP(name='emp_fsl',
+                           threshold=config.getint('emp', 'fsl_threshold'),
+                           ceiling=config.getint('emp', 'fsl_ceiling'),
+                           maxentries=config.getint('emp', 'fsl_maxentries'),
+                           timedtrim=config.getint('emp', 'fsl_timed_trim'))
+        self.emp_ihn = EMP(name='emp_ihn',
+                           threshold=config.getint('emp', 'ihn_threshold'),
+                           ceiling=config.getint('emp', 'ihn_ceiling'),
+                           maxentries=config.getint('emp', 'ihn_maxentries'),
+                           timedtrim=config.getint('emp', 'ihn_timed_trim'))
+
+        # Initialize timed events
+        self.hourly_events(startup=True)
+        # Set a datetime object for next midnight
+        self.midnight_trigger = pyclean.timing.next_midnight()
+
+    def filter(self, art):
+        # Initialize the posting info dict
+        post = {}
+
+        # Trigger timed reloads
+        now = pyclean.timing.now()
+        if now > self.hourly_trigger:
+            self.hourly_events()
+        if now > self.midnight_trigger:
+            self.midnight_events()
+
+        # Attempt to split the From address into component parts
+        if 'From' in art:
+            post['from_name'], \
+            post['from_email'] = email.utils.parseaddr(art['From'])
+
+        # Try to establish the injection-host, posting-host and
+        # posting-account
+        if art[Injection_Info] is not None:
+            # Establish Posting Account
+            ispa = self.regex_pa.search(art[Injection_Info])
+            if ispa:
+                post['posting-account'] = ispa.group(1)
+            # Establish Posting Host
+            isph = self.regex_ph.search(art[Injection_Info])
+            if isph:
+                post['posting-host'] = isph.group(1)
+            # Establish injection host
+            isih = self.regex_hostname.match(art[Injection_Info])
+            if isih:
+                post['injection-host'] = isih.group(0)
+
+        # posting-host might be obtainable from NNTP-Posting-Host
+        if not 'posting-host' in post and art[NNTP_Posting_Host] is not None:
+            post['posting-host'] = str(art[NNTP_Posting_Host])
+
+        # If the injection-host wasn't found in Injection-Info, try the X-Trace
+        # header.  We only look for a hostname as the first field in X-Trace,
+        # otherwise it's regex hell.
+        if not 'injection-host' in post and art[X_Trace] is not None:
+            isih = self.regex_hostname.match(art[X_Trace])
+            if isih:
+                post['injection-host'] = isih.group(0)
+                #logging.debug('Injection-Host (from XT): %s' % ih)
+
+        # Try to extract a hostname from the Path header
+        if config.getboolean('hostnames', 'path_hostname'):
+            # First, check for a !.POSTED tag, as per RFC5537
+            if not 'injection-host' in post and "!.POSTED" in str(art[Path]):
+                postsplit = str(art[Path]).split("!.POSTED", 1)
+                pathhost = postsplit[0].split("!")[-1]
+                if pathhost:
+                    post['injection-host'] = pathhost
+            # Last resort, try the right-most entry in the Path header
+            if not 'injection-host' in post:
+                subhost = re.sub(self.regex_pathhost, '', art[Path])
+                pathhost = subhost.split("!")[-1]
+                if pathhost:
+                    post['injection-host'] = pathhost
+
+        # Some services (like Google) use dozens of Injection Hostnames.
+        # This section looks for substring matches and replaces the entire
+        # Injection-Host with the substring.
+        if 'injection-host' in post:
+            for ihsub in self.ihsubs:
+                if ihsub in post['injection-host']:
+                    logging.debug("Injection-Host: Replacing %s with %s",
+                                  post['injection-host'], ihsub)
+                    post['injection-host'] = ihsub
+
+        # Ascertain if the posting-host is meaningful
+        if 'posting-host' in post:
+            #logging.debug('Posting-Host: %s' % ph)
+            isbad_ph = self.groups.regex.bad_ph.search(post['posting-host'])
+            if isbad_ph:
+                post['bad-posting-host'] = isbad_ph.group(0)
+                logging.debug('Bad posting host: %s' % \
+                              post['bad-posting-host'])
+
+        # The host that fed us this article is first in the Path header.
+        post['feed-host'] = str(art[Path]).split('!', 1)[0]
+
+        # Analyze the Newsgroups header
+        self.groups.analyze(art[Newsgroups])
+
+        ## --- Everything below is accept / reject code ---
+
+        # Reject any messages that don't have a Message-ID
+        if not Message_ID in art:
+            logging.warn("Wot no Message-ID!  Rejecting message because the "
+                         "implications of accepting it are unpredictable.")
+            return self.reject("No Message-ID header", art, post)
+        # We use Message-ID strings so much, it's useful to have a shortcut.
+        mid = str(art[Message_ID])
+
+        #TODO Control message handling still needs to be written
+        if art[Control] is not None:
+            ctrltype = str(art[Control]).split(" ", 1)[0]
+            # Reject control messages with supersedes headers
+            if art[Supersedes] is not None:
+                return self.reject('Control %s with Supersedes header'
+                                   % ctrltype, art, post)
+            if (ctrltype == 'cancel' and
+              config.getboolean('control', 'reject_cancels')):
+                return self.reject("Control cancel", art, post)
+            elif (ctrltype in self.redundant_controls and
+              config.getboolean('control', 'reject_redundant')):
+                return self.reject("Redundant Control Type: %s" % ctrltype)
+            else:
+                logging.info('Control: %s, mid=%s' % (art[Control], mid))
+            return ''
+
+        # Max-crosspost check
+        if self.groups['count'] > config.get('groups', 'max_crosspost'):
+            return self.reject("Crosspost Limit Exceeded", art, post)
+
+        # Lines check
+        if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
+            logmes = "Lines Mismatch: Header=%s, INN=%s, mid=%s"
+            if art[User_Agent] is not None:
+                logmes += ", Agent=%s"
+                logging.debug(logmes % (art[Lines], art[__LINES__],
+                                        mid, art[User_Agent]))
+            else:
+                logging.debug(logmes % (art[Lines], art[__LINES__], mid))
+
+        # Newsguy are evil sex spammers
+        if ('newsguy.com' in mid and
+            config.getboolean('filters', 'newsguy') and
+            'alt.sex' in str(art[Newsgroups])):
+            return self.reject("Newsguy Sex", art, post)
+
+        # For some reason, this OS2 group has become kook central
+        if (art[Newsgroups] and
+            'comp.os.os2.advocacy' in str(art[Newsgroups]) and
+            self.groups['count'] > 1):
+            return self.reject("OS2 Crosspost", art, post)
+        if (art[Followup_To] and
+            'comp.os.os2.advocacy' in str(art[Followup_To])):
+            return self.reject("OS2 Followup", art, post)
+
+        # Compare headers against regex files
+        if self.log_from:
+            lf_result = self.log_from.search(art[From])
+            if lf_result:
+                self.logart(lf_result.group(0), art, post, 'log_from',
+                            trim=False)
+        if self.bad_groups:
+            bg_result = self.bad_groups.search(art[Newsgroups])
+            if bg_result:
+                return self.reject("Bad Group (%s)" % bg_result.group(0),
+                                   art, post)
+        if self.bad_from:
+            bf_result = self.bad_from.search(art[From])
+            if bf_result:
+                return self.reject("Bad From (%s)" % bf_result.group(0),
+                                   art, post)
+        if self.bad_body:
+            bb_result = self.bad_body.search(art[__BODY__])
+            if bb_result:
+                return self.reject("Bad Body (%s)" % bb_result.group(0),
+                                   art, post)
+        if ('posting-host' in post and
+            not 'bad_posting-host' in post and self.bad_posthost):
+            bp_result = self.bad_posthost.search(post['posting-host'])
+            if bp_result:
+                return self.reject("Bad Posting-Host (%s)" % \
+                                   bp_result.group(0), art, post)
+
+        # Is the source of the post considered local?
+        if ('injection-host' in post and self.local_hosts and
+          self.local_hosts.search(post['injection-host'])):
+            self.logart('Local Post', art, post, 'local_post')
+            # Local Bad From
+            if self.local_bad_from:
+                bf_result = self.local_bad_from.search(art[From])
+                if bf_result:
+                    return self.reject("Local Bad From (%s)" % \
+                                       bf_result.group(0), art, post)
+            # Local Bad Groups
+            if self.local_bad_groups:
+                bg_result = self.local_bad_groups.search(art[Newsgroups])
+                if bg_result:
+                    return self.reject("Local Bad Group (%s)" % \
+                                       bg_result.group(0), art, post)
+
+        # Misplaced binary check
+        isbin = self.binary.isbin(art)
+        if config.getboolean('binary', 'reject_all') and isbin:
+            self.binary.increment(post['feed-host'])
+            return self.reject("Binary (%s)" % isbin, art, post)
+        elif not self.groups['binary_allowed_bool'] and isbin:
+            self.binary.increment(post['feed-host'])
+            return self.reject("Binary Misplaced (%s)" % isbin, art, post)
+        # Misplaced HTML check
+        if (not self.groups['html_allowed_bool'] and
+          config.getboolean('filters', 'reject_html') and
+          art[Content_Type] is not None):
+            if 'text/html' in str(art[Content_Type]).lower():
+                return self.reject("HTML Misplaced", art, post)
+            if 'multipart' in art[Content_Type]:
+                if config.getboolean('filters', 'reject_multipart'):
+                    return self.reject("MIME Multpart", art, post)
+                else:
+                    logging.info('Multipart: %s' % mid)
+
+        # Start of EMP checks
+        if (not self.groups['emp_exclude_bool'] and
+            not self.groups['test_bool']):
+            # Create a sorted Newsgroups header to prevent reordering to
+            # circumvent EMP.
+            ngs = ','.join(sorted(str(art[Newsgroups]).lower().split(',')))
+            # Start of posting-host based checks.
+            # First try and seed some filter fodder.
+            if 'posting-account' in post:
+                # If a Posting-Account is known, it makes better filter fodder
+                # than the hostname/address which could be dynamic.
+                fodder = post['posting-account']
+            elif 'bad-posting-host' in post:
+                # If we can't trust the info in posting-host, use the
+                # injection-host. This is a worst-case scenario.
+                if ('injection-host' in post and
+                    config.getboolean('emp', 'ph_coarse')):
+                    fodder = post['injection-host']
+                else:
+                    fodder = None
+            elif 'posting-host' in post:
+                fodder = post['posting-host']
+            else:
+                fodder = None
+            if fodder:
+                # Beginning of PHN filter
+                if self.emp_phn.add(fodder + ngs):
+                    return self.reject("EMP PHN Reject", art, post)
+                # Beginning of PHL filter
+                if self.emp_phl.add(fodder + str(art[__LINES__])):
+                    return self.reject("EMP PHL Reject", art, post)
+            # Beginning of FSL filter
+            fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
+            if self.emp_fsl.add(fsl):
+                return self.reject("EMP FSL Reject", art, post)
+            # Beginning of IHN filter
+            if ('injection-host' in post and
+                not self.groups['ihn_exclude_bool']):
+                ihn_result = self.ihn_hosts.search(post['injection-host'])
+                if (ihn_result and
+                  self.emp_ihn.add(post['injection-host'] + ngs)):
+                    return self.reject("EMP IHN Reject", art, post)
+            # Beginning of EMP Body filter.  Do this last, it's most
+            # expensive in terms of processing.
+            if art[__BODY__] is not None:
+                if self.emp_body.add(art[__BODY__]):
+                    return self.reject("EMP Body Reject", art, post)
+
+        # Filtering complete, here are some post-filter actions.
+        if (self.groups['auk_bool'] and 'injection-host' in post and
+            post['from_email']):
+            self.batchlog_auk.add("%s,%s,%s"
+                    % (pyclean.timing.nowstamp(),
+                       post['from_email'],
+                       post['injection-host'].replace(',', '_')))
+
+        # The article passed all checks. Return an empty string.
+        return ""
+
+    def reject(self, reason, art, post):
+        for logrule in self.log_rules.keys():
+            if reason.startswith(logrule):
+                self.logart(reason, art, post, self.log_rules[logrule])
+                break
+        logging.debug("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        return reason
+
+    def logart(self, reason, art, post, filename, trim=True):
+        f = open(os.path.join(config.get('paths', 'logart'), filename), 'a')
+        f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
+        f.write('Info: %s\n' % reason)
+        for hdr in art.keys():
+            if hdr == '__BODY__' or hdr == '__LINES__' or art[hdr] is None:
+                continue
+            f.write('%s: %s\n' % (hdr, art[hdr]))
+        for hdr in post.keys():
+            f.write('%s: %s\n' % (hdr, post[hdr]))
+        f.write('\n')
+        if (not trim or
+          art[__LINES__] <= config.get('logging', 'logart_maxlines')):
+            f.write(art[__BODY__])
+        else:
+            for line in str(art[__BODY__]).split('\n',
+                        config.get('logging', 'logart_maxlines'))[:-1]:
+                f.write(line + "\n")
+            f.write('[snip]')
+        f.write('\n\n')
+        f.close
+
+    def hourly_events(self, startup=False):
+        """Carry out hourly events.  Some of these events may be to check if
+        it's time to do other, less frequent events.  Timed events are also
+        triggered on startup.  The "startup" flag enables special handling of
+        this instance.
+
+        """
+        logging.info('Performing hourly tasks')
+        self.emp_body.statlog()
+        self.emp_fsl.statlog()
+        self.emp_phl.statlog()
+        self.emp_phn.statlog()
+        self.emp_ihn.statlog()
+        # Reload logging directives
+        logging.debug('Reloading logging directives')
+        self.log_rules = self.file2dict('log_rules')
+        # Reload Injection-Host substrings
+        logging.debug('Reloading Injection-Host substrings')
+        self.ihsubs = self.file2list('ih_substrings')
+        # Set up Regular Expressions
+        logging.debug('Compiling bad_from regex')
+        self.bad_from = self.regex_file('bad_from')
+        logging.debug('Compiling bad_groups regex')
+        self.bad_groups = self.regex_file('bad_groups')
+        logging.debug('Compiling bad_posthost regex')
+        self.bad_posthost = self.regex_file('bad_posthost')
+        logging.debug('Compiling bad_body regex')
+        self.bad_body = self.regex_file('bad_body')
+        logging.debug('Compiling ihn_hosts regex')
+        self.ihn_hosts = self.regex_file('ihn_hosts')
+        logging.debug('Compiling local_hosts regex')
+        self.local_hosts = self.regex_file('local_hosts')
+        logging.debug('Compiling local_bad_from regex')
+        self.local_bad_from = self.regex_file('local_bad_from')
+        logging.debug('Compiling local_bad_groups regex')
+        self.local_bad_groups = self.regex_file('local_bad_groups')
+        logging.debug('Compiling log_from regex')
+        self.log_from = self.regex_file('log_from')
+        if not startup:
+            # Re-read the config file.
+            configfile = os.path.join(config.get('paths', 'etc'),
+                                                 'pyclean.cfg')
+            logging.info("Reloading config file: %s" % configfile)
+            if os.path.isfile(configfile):
+                config.read(configfile)
+            else:
+                logging.warn("%s: File not found" % configfile)
+        # Reset the next timed trigger.
+        self.hourly_trigger = pyclean.timing.future(hours=1)
+
+    def midnight_events(self):
+        """Events that need to occur at midnight each day.
+
+        """
+        logging.info('Performing midnight tasks')
+        self.binary.report()
+        self.emp_body.reset()
+        self.emp_fsl.reset()
+        self.emp_phl.reset()
+        self.emp_phn.reset()
+        self.emp_ihn.reset()
+        # Set the midnight trigger for next day.
+        self.midnight_trigger = pyclean.timing.next_midnight()
+
+    def regex_file(self, filename):
+        """Read a given file and return a regular expression composed of
+        individual regex's on each line that have not yet expired.
+
+        """
+        fqfn = os.path.join(config.get('paths', 'etc'), filename)
+        if not os.path.isfile(fqfn):
+            logging.debug('%s: Bad file not found' % filename)
+            return False
+        # Make a local datetime object for now, just to save setting now in
+        # the coming loop.
+        now = pyclean.timing.now()
+        bad_items = []
+        f = open(fqfn, 'r')
+        for line in f:
+            valid = self.regex_bads.match(line)
+            if valid:
+                try:
+                    # Is current time beyond that of the datestamp? If it is,
+                    # the entry is considered expired and processing moves to
+                    # the next entry.
+                    if now > pyclean.timing.dateobj(valid.group(2)):
+                        continue
+                except ValueError:
+                    # If the timestamp is invalid, just ignore the entry
+                    continue
+                # If processing gets here, the entry is a valid regex.
+                bad_items.append(valid.group(1))
+        f.close()
+        if len(bad_items) == 0:
+            # No valid entires exist in the file.
+            logging.debug('%s: No valid entries found' % filename)
+            return False
+        regex = '|'.join(bad_items)
+        # This should never happen but best to check as || will match
+        # everything.
+        regex = regex.replace('||', '|')
+        return re.compile(regex)
+
+    def file2list(self, filename):
+        fqfn = os.path.join(config.get('paths', 'etc'), filename)
+        if not os.path.isfile(fqfn):
+            logging.info('%s: File not found' % filename)
+            return []
+        f = open(fqfn, 'r')
+        lines = f.readlines()
+        f.close()
+        valid = []
+        for line in lines:
+            # Strip comments (including inline)
+            content = line.split('#', 1)[0].strip()
+            # Ignore empty lines
+            if len(content) > 0:
+                valid.append(content)
+        return valid
+
+    def file2dict(self, filename, numeric=False):
+        """Read a file and split each line at the first space encountered. The
+        first element is the key, the rest is the content. If numeric is True
+        then only integer values will be acccepted."""
+        d = {}
+        for line in self.file2list(filename):
+            valid = self.regex_fields.match(line)
+            if valid:
+                k = valid.group(1)
+                c = valid.group(2)
+                if numeric:
+                    try:
+                        c = int(c)
+                    except ValueError:
+                        c = 0
+                d[k] = c
+        return d
+
+    def closetasks(self):
+        """Things to do on filter closing.
+
+        """
+        logging.info("Running shutdown tasks")
+        # Write to file any entries in the stack
+        self.batchlog_auk.stack_write()
+
+
+class BatchLog():
+    """This class stacks up log-type entries until a predefined limit is
+    reached.  At that point it writes them to a file and starts again.
+
+    """
+    def __init__(self, stacksize, filename):
+        self.stacksize = stacksize
+        self.filename = os.path.join(config.get('paths', 'log'), filename)
+        # Initialize the stack itself
+        self.stack = []
+
+    def stack_write(self):
+        if len(self.stack) == 0:
+            logging.info("stack_write called but no entries to write.")
+        else:
+            f = open(self.filename, 'a')
+            for entry in self.stack:
+                f.write(entry + "\n")
+            logging.info("Batchlog wrote %s entries to %s"
+                         % (len(self.stack), self.filename))
+            f.close()
+            self.stack = []
+
+    def add(self, entry):
+        self.stack.append(entry)
+        if len(self.stack) >= self.stacksize:
+            self.stack_write()
+
+
+class Groups():
+    def __init__(self):
+        self.regex = Regex()
+
+    def __getitem__(self, grptest):
+        return self.grp[grptest]
+
+    def __contains__(self, item):
+        if item in self.grp:
+            return True
+        return False
+
+    def analyze(self, newsgroups):
+        self.grp = defaultdict(lambda: 0)
+        nglist = str(newsgroups).split(',')
+        self.grp['count'] = len(nglist)
+        for ng in nglist:
+            if self.regex.test.search(ng):
+                self.grp['test'] += 1
+            if self.regex.bin_allowed.search(ng):
+                self.grp['bin_allowed'] += 1
+            if self.regex.emp_exclude.search(ng):
+                self.grp['emp_exclude'] += 1
+            if self.regex.ihn_exclude.search(ng):
+                self.grp['ihn_exclude'] += 1
+            if self.regex.html_allowed.search(ng):
+                self.grp['html_allowed'] += 1
+            if INN.newsgroup(ng) == 'm':
+                self.grp['moderated'] += 1
+        # Not all bools will be meaningful but it's easier to create them
+        # generically then specifically.
+        for ngelement in self.grp.keys():
+            ngbool = '%s_bool' % ngelement
+            self.grp[ngbool] = self.grp[ngelement] == self.grp['count']
+        # alt.usenet.kooks boolean
+        if 'alt.usenet.kooks' in nglist:
+            self.grp['auk_bool'] = True
+        else:
+            self.grp['auk_bool'] = False
+
+
+class Regex():
+    def __init__(self):
+        # Test groups
+        test = ['\.test(ing)?(?:$|\.)',
+                '^es\.pruebas',
+                '^borland\.public\.test2',
+                '^cern\.testnews']
+        self.test = self.regex_compile(test)
+        # Binary groups
+        bin_allowed = ['^bin[a.]', '\.bin[aei.]', '\.bin$', '^fur\.artwork',
+                       '^alt\.anonymous\.messages$', '^de\.alt\.dateien',
+                       '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
+                       '^sfnet\.tiedostot', '^fido\.', '^unidata\.',
+                       '^alt\.security\.keydist',
+                       '^linux\.debian\.bugs\.dist$', '^lucky\.freebsd']
+        self.bin_allowed = self.regex_compile(bin_allowed)
+        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
+        self.html_allowed = self.regex_compile(html_allowed)
+        # Exclude from all EMP filters
+        emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
+                       '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.']
+        self.emp_exclude = self.regex_compile(emp_exclude)
+        # Exclude groups from IHN filter
+        ihn_exclude = ['^alt\.anonymous', '^alt\.privacy']
+        self.ihn_exclude = self.regex_compile(ihn_exclude)
+        # Bad posting-hosts
+        bad_ph = ['newsguy\.com', 'tornevall\.net']
+        self.bad_ph = self.regex_compile(bad_ph)
+
+    def regex_compile(self, regexlist):
+        textual = '|'.join(regexlist).replace('||', '|')
+        return re.compile(textual)
+
+
+class EMP():
+    def __init__(self, threshold=3,
+                       ceiling=100,
+                       maxentries=5000,
+                       timedtrim=3600,
+                       dofuzzy=False,
+                       name=False):
+        # Statistics relating to this EMP instance
+        if threshold > ceiling:
+            raise ValueError('Threshold cannot exceed ceiling')
+        # The hash table itself.  Keyed by MD5 hash and containing a hit
+        # count.
+        self.table = {}
+        self.fuzzy_15char = re.compile('\S{15,}')
+        self.fuzzy_notletters = re.compile('[^a-zA-Z]')
+        # Initialize some defaults
+        self.stats = {'name':       name,
+                      'nexttrim':   pyclean.timing.future(secs=timedtrim),
+                      'processed':  0,
+                      'accepted':   0,
+                      'rejected':   0,
+                      'threshold':  threshold,
+                      'ceiling':    ceiling,
+                      'maxentries': maxentries,
+                      'timedtrim':  timedtrim,
+                      'dofuzzy':    dofuzzy}
+        logmes = '%(name)s initialized. '
+        logmes += 'threshold=%(threshold)s, '
+        logmes += 'ceiling=%(ceiling)s, '
+        logmes += 'maxentries=%(maxentries)s, '
+        logmes += 'timedtrim=%(timedtrim)s'
+        logging.info(logmes % self.stats)
+
+    def add(self, content):
+        """The content, in this context, is any string we want to hash and
+        check for EMP collisions.  In various places we refer to it as
+        'hash fodder'.
+
+        """
+        self.stats['processed'] += 1
+        if self.stats['dofuzzy']:
+            # Strip long strings
+            content = re.sub(self.fuzzy_15char, '', content)
+            # Remove everything except a-zA-Z
+            content = re.sub(self.fuzzy_notletters, '', content).lower()
+
+        # Bail out if the byte length of the content isn't sufficient for
+        # generating an effective, unique hash.
+        if len(content) < 1:
+            logging.debug("Null content in %s hashing fodder.",
+                          self.stats['name'])
+            return False
+
+        # MD5 is weak in cryptographic terms, but do I care for the purpose
+        # of EMP collision checking?  Obviously not or I'd use something else.
+        h = hashlib.md5(content).digest()
+        if h in self.table:
+            # When the ceiling is reached, stop incrementing the count.
+            if self.table[h] < self.stats['ceiling']:
+                self.table[h] += 1
+            else:
+                logging.debug("%s hash ceiling hit. Not incrementing counter.",
+                              self.stats['name'])
+
+        else:
+            # See if it's time to perform a trim.  We only care about doing
+            # this when a new entry is being made.
+            if pyclean.timing.now() > self.stats['nexttrim']:
+                self._trim()
+            elif len(self.table) > self.stats['maxentries']:
+                logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
+                logging.warn(logmes % self.stats)
+                self._trim()
+            # Initialize the md5 entry.
+            self.table[h] = 1
+        if self.table[h] > self.stats['threshold']:
+            # Houston, we have an EMP reject.
+            self.stats['rejected'] += 1
+            return True
+        self.stats['accepted'] += 1
+        return False
+
+    def _trim(self):
+        """Decrement the counter against each hash.  If the counter reaches
+        zero, delete the hash entry.
+
+        """
+        # As the EMP table is about to be modified, oldsize records it prior
+        # to doing any changes.  This is only used for reporting purposes.
+        self.stats['oldsize'] = len(self.table)
+        for h in self.table.keys():
+            self.table[h] -= 1
+            if self.table[h] <= 0:
+                del self.table[h]
+        self.stats['size'] = len(self.table)
+        logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s',
+                     self.stats)
+        self.stats['nexttrim'] = \
+                    pyclean.timing.future(secs=self.stats['timedtrim'])
+
+    def statlog(self):
+        """Log details of the EMP hash."""
+        self.stats['size'] = len(self.table)
+        logging.info("%(name)s: size=%(size)s, processed=%(processed)s, "
+                     "accepted=%(accepted)s, rejected=%(rejected)s",
+                     self.stats)
+
+    def reset(self):
+        """Reset counters for this emp filter.
+
+        """
+        self.stats['processed'] = 0
+        self.stats['accepted'] = 0
+        self.stats['rejected'] = 0
 """
 Okay, that's the end of our class definition.  What follows is the
 stuff you need to do to get it all working inside innd.
 """
 
-##  This import must succeed, or your filter won't work.  I'll repeat
-##  that: You MUST import INN.
-from INN import *
 
-##  Some of the stuff below is gratuitous, just demonstrating how the
-##  INN.syslog call works.  That first thingy tells the Unix syslogger
-##  what severity to use; you can abbreviate down to one letter and
-##  it's case insensitive.  Available levels are (in increasing levels
-##  of seriousness) Debug, Info, Notice, Warning, Err, Crit, and
-##  Alert.  If you provide any other string, it will be defaulted to
-##  Notice.  You'll find the entries in the same log files innd itself
-##  uses, with an 'innd: python:' prefix.
-##
-##  The native Python syslog module seems to clash with INN, so use
-##  INN's.  Oh yeah -- you may notice that stdout and stderr have been
-##  redirected to /dev/null -- if you want to print stuff, open your
-##  own files.
+def init_logging():
+    logfmt = config.get('logging', 'format')
+    datefmt = config.get('logging', 'datefmt')
+    loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
+                'warn': logging.WARN, 'error': logging.ERROR}
+    logging.getLogger().setLevel(logging.DEBUG)
+    logfile = logging.handlers.TimedRotatingFileHandler(
+                    os.path.join(config.get('paths', 'log'), 'pyclean.log'),
+                    when='midnight',
+                    interval=1,
+                    backupCount=config.getint('logging', 'retain'),
+                    utc=True)
+    logfile.setLevel(loglevels[config.get('logging', 'level')])
+    logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
+    logging.getLogger().addHandler(logfile)
 
+if not 'pyclean' in dir():
+    init_logging()
+
+python_filter = InndFilter()
 try:
-    import sys
-
+    INN.set_filter_hook(python_filter)
+    INN.syslog('n', "pyclean successfully hooked into INN")
 except Exception, errmsg:    # Syntax for Python 2.x.
 #except Exception as errmsg: # Syntax for Python 3.x.
-    syslog('Error', "import boo-boo: " + errmsg[0])
+    INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
 
-
-##  If you want to do something special when the server first starts
-##  up, this is how to find out when it's time.
-
-if 'pyclean' not in dir():
-    syslog('n', "First load, so I can do initialization stuff.")
-    # Initialize the standard Python logger
-    # You could unpickle a saved hash here, so that your hard-earned
-    # spam scores aren't lost whenever you shut down innd.
-else:
-    syslog('n', "I'm just reloading, so skip the formalities.")
-
-
-##  Finally, here is how we get our class on speaking terms with innd.
-##  The hook is refreshed on every reload, so that you can change the
-##  methods on a running server.  Don't forget to test your changes
-##  before reloading!
-pyclean = InndFilter()
-try:
-    set_filter_hook(pyclean)
-    syslog('n', "pyclean successfully hooked into INN")
-except Exception, errmsg:    # Syntax for Python 2.x.
-#except Exception as errmsg: # Syntax for Python 3.x.
-    syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
+##  This looks weird, but creating and interning these strings should
+##  let us get faster access to header keys (which innd also interns) by
+##  losing some strcmps under the covers.
+Also_Control = intern("Also-Control")
+Approved = intern("Approved")
+Archive = intern("Archive")
+Archived_At = intern("Archived-At")
+Bytes = intern("Bytes")
+Cancel_Key = intern("Cancel-Key")
+Cancel_Lock = intern("Cancel-Lock")
+Comments = intern("Comments")
+Content_Base = intern("Content-Base")
+Content_Disposition = intern("Content-Disposition")
+Content_Transfer_Encoding = intern("Content-Transfer-Encoding")
+Content_Type = intern("Content-Type")
+Control = intern("Control")
+Date = intern("Date")
+Date_Received = intern("Date-Received")
+Distribution = intern("Distribution")
+Expires = intern("Expires")
+Face = intern("Face")
+Followup_To = intern("Followup-To")
+From = intern("From")
+In_Reply_To = intern("In-Reply-To")
+Injection_Date = intern("Injection-Date")
+Injection_Info = intern("Injection-Info")
+Keywords = intern("Keywords")
+Lines = intern("Lines")
+List_ID = intern("List-ID")
+Message_ID = intern("Message-ID")
+MIME_Version = intern("MIME-Version")
+Newsgroups = intern("Newsgroups")
+NNTP_Posting_Date = intern("NNTP-Posting-Date")
+NNTP_Posting_Host = intern("NNTP-Posting-Host")
+NNTP_Posting_Path = intern("NNTP-Posting-Path")
+Organization = intern("Organization")
+Original_Sender = intern("Original-Sender")
+Originator = intern("Originator")
+Path = intern("Path")
+Posted = intern("Posted")
+Posting_Version = intern("Posting-Version")
+Received = intern("Received")
+References = intern("References")
+Relay_Version = intern("Relay-Version")
+Reply_To = intern("Reply-To")
+Sender = intern("Sender")
+Subject = intern("Subject")
+Summary = intern("Summary")
+Supersedes = intern("Supersedes")
+User_Agent = intern("User-Agent")
+X_Auth = intern("X-Auth")
+X_Auth_Sender = intern("X-Auth-Sender")
+X_Canceled_By = intern("X-Canceled-By")
+X_Cancelled_By = intern("X-Cancelled-By")
+X_Complaints_To = intern("X-Complaints-To")
+X_Face = intern("X-Face")
+X_HTTP_UserAgent = intern("X-HTTP-UserAgent")
+X_HTTP_Via = intern("X-HTTP-Via")
+X_Mailer = intern("X-Mailer")
+X_Modbot = intern("X-Modbot")
+X_Modtrace = intern("X-Modtrace")
+X_Newsposter = intern("X-Newsposter")
+X_Newsreader = intern("X-Newsreader")
+X_No_Archive = intern("X-No-Archive")
+X_Original_Message_ID = intern("X-Original-Message-ID")
+X_Original_NNTP_Posting_Host = intern("X-Original-NNTP-Posting-Host")
+X_Original_Trace = intern("X-Original-Trace")
+X_Originating_IP = intern("X-Originating-IP")
+X_PGP_Key = intern("X-PGP-Key")
+X_PGP_Sig = intern("X-PGP-Sig")
+X_Poster_Trace = intern("X-Poster-Trace")
+X_Postfilter = intern("X-Postfilter")
+X_Proxy_User = intern("X-Proxy-User")
+X_Submissions_To = intern("X-Submissions-To")
+X_Trace = intern("X-Trace")
+X_Usenet_Provider = intern("X-Usenet-Provider")
+X_User_ID = intern("X-User-ID")
+Xref = intern("Xref")
+__BODY__ = intern("__BODY__")
+__LINES__ = intern("__LINES__")
