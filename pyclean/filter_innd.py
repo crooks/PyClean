@@ -153,6 +153,9 @@ class InndFilter:
 
 
 class Binary():
+    """Perform binary content checking of articles.
+
+    """
     def __init__(self):
         # Binaries
         self.regex_yenc = re.compile('^=ybegin.*', re.M)
@@ -533,8 +536,12 @@ class Filter():
                 fodder = None
             if fodder:
                 # Beginning of PHN filter
-                if self.emp_phn.add(fodder + ngs):
-                    return self.reject("EMP PHN Reject", art, post)
+                if 'moderated' in self.groups and self.groups['moderated']:
+                    logging.debug("Bypassing PHN filter due to moderated "
+                                  "group in distribution")
+                else:
+                    if self.emp_phn.add(fodder + ngs):
+                        return self.reject("EMP PHN Reject", art, post)
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject("EMP PHL Reject", art, post)
