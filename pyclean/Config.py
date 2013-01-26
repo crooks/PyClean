@@ -142,6 +142,10 @@ if not config.has_option('paths', 'logart'):
     config.set('paths', 'logart', os.path.join(basedir, 'articles'))
 makedir(config.get('paths', 'logart'))
 
+if not config.has_option('paths', 'lib'):
+    config.set('paths', 'lib', os.path.join(basedir, 'lib'))
+makedir(config.get('paths', 'lib'))
+
 # The following lines can be uncommented in order to write a config file. This
 # is useful for creating an example file.
 #with open('example.cfg', 'wb') as configfile:

@@ -26,6 +26,7 @@ import os.path
 import traceback
 import logging
 import logging.handlers
+import shelve
 import sys
 import email.utils
 import hashlib
@@ -55,6 +56,13 @@ class InndFilter:
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
         """
+        try:
+            self.pyfilter.closetasks()
+        except:
+            fn = os.path.join(config.get('paths', 'log'), 'close_traceback')
+            f = open(fn, 'a')
+            traceback.print_exc(file=f)
+            f.close()
         return ""
 
     def filter_close(self):
@@ -70,7 +78,7 @@ class InndFilter:
             f = open(fn, 'a')
             traceback.print_exc(file=f)
             f.close()
-            return ""
+        return ""
         INN.syslog('notice', "filter_close running, bye!")
 
     def filter_messageid(self, msgid):
@@ -748,6 +756,11 @@ class Filter():
         logging.info("Running shutdown tasks")
         # Write to file any entries in the stack
         self.batchlog_auk.stack_write()
+        self.emp_body.dump()
+        self.emp_fsl.dump()
+        self.emp_phl.dump()
+        self.emp_phn.dump()
+        self.emp_ihn.dump()
 
 
 class BatchLog():
@@ -960,6 +973,16 @@ class EMP():
         logging.info("%(name)s: size=%(size)s, processed=%(processed)s, "
                      "accepted=%(accepted)s, rejected=%(rejected)s",
                      self.stats)
+
+    def dump(self):
+        """Dump the EMP table to disk so we can reload it after a restart.
+
+        """
+        dumpfile = os.path.join(config.get('paths', 'lib'),
+                                self.stats['name'] + ".db")
+        dump = shelve.open(dumpfile, flag='n')
+        dump = self.table.copy()
+        dump.close()
 
     def reset(self):
         """Reset counters for this emp filter.
