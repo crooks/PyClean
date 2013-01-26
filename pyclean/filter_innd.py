@@ -42,6 +42,7 @@ class InndFilter:
         regular expressions, or maybe reload stats from disk.
 
         """
+        self.traceback_loop = 0
         try:
             self.pyfilter = Filter()
         except:
@@ -137,10 +138,12 @@ class InndFilter:
         try:
             return self.pyfilter.filter(art)
         except:
-            fn = os.path.join(config.get('paths', 'log'), 'traceback')
-            f = open(fn, 'a')
-            traceback.print_exc(file=f)
-            f.close()
+            if not self.traceback_loop:
+                fn = os.path.join(config.get('paths', 'log'), 'traceback')
+                f = open(fn, 'a')
+                traceback.print_exc(file=f)
+                f.close()
+                self.traceback_loop = 1
             return ""
 
     def filter_mode(self, oldmode, newmode, reason):
