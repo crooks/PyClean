@@ -880,6 +880,8 @@ class EMP():
         # The hash table itself.  Keyed by MD5 hash and containing a hit
         # count.
         self.table = {}
+        # Attempt to restore a previous EMP dump
+        self.restore(name)
         self.fuzzy_15char = re.compile('\S{15,}')
         self.fuzzy_notletters = re.compile('[^a-zA-Z]')
         # Initialize some defaults
@@ -981,8 +983,27 @@ class EMP():
         dumpfile = os.path.join(config.get('paths', 'lib'),
                                 self.stats['name'] + ".db")
         dump = shelve.open(dumpfile, flag='n')
-        dump = self.table.copy()
+        for k in self.table:
+            dump[k] = self.table[k]
         dump.close()
+
+    def restore(self, name):
+        """Restore an EMP dump from disk.
+
+        """
+        dumpfile = os.path.join(config.get('paths', 'lib'), name + ".db")
+        if os.path.isfile(dumpfile):
+            logging.info("Attempting restore of %s dump", name)
+            dump = shelve.open(dumpfile, flag='r')
+            # We seem unable to use copy functions between shelves and dicts
+            # so we do it per record.  Speed is not essential at these times.
+            for k in dump:
+                self.table[k] = dump[k]
+            dump.close()
+            logging.info("Restored %s records to %s", len(self.table), name)
+        else:
+            logging.debug("%s: Dump file does not exist.  Doing a clean "
+                          "initialzation.", dumpfile)
 
     def reset(self):
         """Reset counters for this emp filter.
@@ -997,24 +1018,20 @@ stuff you need to do to get it all working inside innd.
 """
 
 
-def init_logging():
-    logfmt = config.get('logging', 'format')
-    datefmt = config.get('logging', 'datefmt')
-    loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
-                'warn': logging.WARN, 'error': logging.ERROR}
-    logging.getLogger().setLevel(logging.DEBUG)
-    logfile = logging.handlers.TimedRotatingFileHandler(
-                    os.path.join(config.get('paths', 'log'), 'pyclean.log'),
-                    when='midnight',
-                    interval=1,
-                    backupCount=config.getint('logging', 'retain'),
-                    utc=True)
-    logfile.setLevel(loglevels[config.get('logging', 'level')])
-    logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
-    logging.getLogger().addHandler(logfile)
-
-if not 'pyclean' in dir():
-    init_logging()
+logfmt = config.get('logging', 'format')
+datefmt = config.get('logging', 'datefmt')
+loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
+             'warn': logging.WARN, 'error': logging.ERROR}
+logging.getLogger().setLevel(logging.DEBUG)
+logfile = logging.handlers.TimedRotatingFileHandler(
+                os.path.join(config.get('paths', 'log'), 'pyclean.log'),
+                when='midnight',
+                interval=1,
+                backupCount=config.getint('logging', 'retain'),
+                utc=True)
+logfile.setLevel(loglevels[config.get('logging', 'level')])
+logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
+logging.getLogger().addHandler(logfile)
 
 python_filter = InndFilter()
 try:
