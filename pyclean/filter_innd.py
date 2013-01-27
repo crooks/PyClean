@@ -1020,21 +1020,21 @@ Okay, that's the end of our class definition.  What follows is the
 stuff you need to do to get it all working inside innd.
 """
 
-
-logfmt = config.get('logging', 'format')
-datefmt = config.get('logging', 'datefmt')
-loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
-             'warn': logging.WARN, 'error': logging.ERROR}
-logging.getLogger().setLevel(logging.DEBUG)
-logfile = logging.handlers.TimedRotatingFileHandler(
-                os.path.join(config.get('paths', 'log'), 'pyclean.log'),
-                when='midnight',
-                interval=1,
-                backupCount=config.getint('logging', 'retain'),
-                utc=True)
-logfile.setLevel(loglevels[config.get('logging', 'level')])
-logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
-logging.getLogger().addHandler(logfile)
+if not 'python_filter' in dir():
+    logfmt = config.get('logging', 'format')
+    datefmt = config.get('logging', 'datefmt')
+    loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
+                 'warn': logging.WARN, 'error': logging.ERROR}
+    logging.getLogger().setLevel(logging.DEBUG)
+    logfile = logging.handlers.TimedRotatingFileHandler(
+                    os.path.join(config.get('paths', 'log'), 'pyclean.log'),
+                    when='midnight',
+                    interval=1,
+                    backupCount=config.getint('logging', 'retain'),
+                    utc=True)
+    logfile.setLevel(loglevels[config.get('logging', 'level')])
+    logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
+    logging.getLogger().addHandler(logfile)
 
 python_filter = InndFilter()
 try:
