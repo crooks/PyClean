@@ -171,11 +171,12 @@ class Binary():
         # Binaries
         self.regex_yenc = re.compile('^=ybegin.*', re.M)
         self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
-        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59,76}[ \t]*$')
-        self.regex_binary = re.compile('[ \t]*\S{40,}[ \t]*$')
+        self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59}')
+        self.regex_binary = re.compile('[ \t]*\S{40}')
         # Feedhosts keeps a tally of how many binary articles are received
         # from each upstream peer.
         self.feedhosts = {}
+        self.tagged = 0
 
     def increment(self, pathhost):
         """Increment feedhosts."""
@@ -217,8 +218,8 @@ class Binary():
         if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
         # Also avoid these costly checks where a References header is present.
-        if (art[References] is not None and
-          config.getboolean('binary', 'fasttrack_references')):
+        if ('References' in art and str(art['References']).startswith('<') and
+            config.getboolean('binary', 'fasttrack_references')):
             return False
         # Base64 and suspect binary matching
         b64match = 0
@@ -849,7 +850,7 @@ class Regex():
                        '^alt\.anonymous\.messages$', '^de\.alt\.dateien',
                        '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
                        '^sfnet\.tiedostot', '^fido\.', '^unidata\.',
-                       '^alt\.security\.keydist',
+                       '^alt\.security\.keydist', '^mailing\.',
                        '^linux\.debian\.bugs\.dist$', '^lucky\.freebsd']
         self.bin_allowed = self.regex_compile(bin_allowed)
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
