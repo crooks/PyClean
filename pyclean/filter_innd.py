@@ -170,7 +170,7 @@ class Binary():
     def __init__(self):
         # Binaries
         self.regex_yenc = re.compile('^=ybegin.*', re.M)
-        self.regex_uuenc = re.compile('^begin[ \t]+0\d{3}[ \t]', re.M)
+        self.regex_uuenc = re.compile('^begin[ \t]+\d{3,4}[ \t]+\w+\.\w', re.M)
         self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59}')
         self.regex_binary = re.compile('[ \t]*\S{40}')
         # Feedhosts keeps a tally of how many binary articles are received
