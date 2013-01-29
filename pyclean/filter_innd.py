@@ -238,12 +238,11 @@ class Binary():
                 suspect = 0
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
-            if suspect > config.get('binary', 'lines_allowed'):
-                if config.getboolean('binary', 'reject_suspected'):
-                    return 'binary'
-                else:
-                    logging.info('Suspect binary: %s' % art[Message_ID])
-                break
+            if (suspect > config.get('binary', 'lines_allowed') and
+                config.getboolean('binary', 'reject_suspected')):
+                return 'binary'
+        if suspect > config.get('binary', 'lines_allowed'):
+            logging.info('Suspect binary: %s' % art[Message_ID])
         return False
 
 
