@@ -228,14 +228,14 @@ class Binary():
             if (line.startswith('-----BEGIN PGP') and
                 config.getboolean('binary', 'allow_pgp')):
                 break
+            # Resetting the next counter to zero on a non-matching line
+            # dictates the counted base64 lines must be consecutive.
             if self.regex_base64.match(line):
                 b64match += 1
             else:
                 b64match = 0
             if self.regex_binary.match(line):
                 suspect += 1
-            else:
-                suspect = 0
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
             if (suspect > config.get('binary', 'lines_allowed') and
@@ -502,13 +502,16 @@ class Filter():
                                        bg_result.group(0), art, post)
 
         # Misplaced binary check
-        isbin = self.binary.isbin(art)
-        if config.getboolean('binary', 'reject_all') and isbin:
-            self.binary.increment(post['feed-host'])
-            return self.reject("Binary (%s)" % isbin, art, post)
-        elif not self.groups['binary_allowed_bool'] and isbin:
-            self.binary.increment(post['feed-host'])
-            return self.reject("Binary Misplaced (%s)" % isbin, art, post)
+        if config.getboolean('binary', 'reject_all'):
+            isbin = self.binary.isbin(art)
+            if isbin:
+                self.binary.increment(post['feed-host'])
+                return self.reject("Binary (%s)" % isbin, art, post)
+        elif not self.groups['binary_allowed_bool']:
+            isbin = self.binary.isbin(art)
+            if isbin:
+                self.binary.increment(post['feed-host'])
+                return self.reject("Binary Misplaced (%s)" % isbin, art, post)
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
           config.getboolean('filters', 'reject_html') and
