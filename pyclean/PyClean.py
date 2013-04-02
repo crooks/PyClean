@@ -470,6 +470,13 @@ class Filter():
                     return self.reject("Local Bad Group (%s)" % \
                                        bg_result.group(0), art, post)
 
+            # Local Bad Body
+            if self.local_bad_body:
+                bb_result = self.local_bad_body.search(art[__BODY__])
+                if bb_result:
+                    return self.reject("Local Bad Body (%s)" % \
+                                       bb_result.group(0), art, post)
+
         # Misplaced binary check
         isbin = self.binary.isbin(art)
         if config.getboolean('binary', 'reject_all') and isbin:
@@ -615,6 +622,8 @@ class Filter():
         self.local_bad_from = self.regex_file('local_bad_from')
         logging.debug('Compiling local_bad_groups regex')
         self.local_bad_groups = self.regex_file('local_bad_groups')
+        logging.debug('Compiling local_bad_body regex')
+        self.bad_body = self.regex_file('local_bad_body')
         logging.debug('Compiling log_from regex')
         self.log_from = self.regex_file('log_from')
         if not startup:

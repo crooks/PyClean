@@ -238,11 +238,8 @@ class Binary():
                 suspect += 1
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
-            if (suspect > config.get('binary', 'lines_allowed') and
-                config.getboolean('binary', 'reject_suspected')):
+            if suspect > config.get('binary', 'lines_allowed'):
                 return 'binary'
-        if suspect > config.get('binary', 'lines_allowed'):
-            logging.info('Suspect binary: %s' % art[Message_ID])
         return False
 
 
@@ -501,17 +498,27 @@ class Filter():
                     return self.reject("Local Bad Group (%s)" % \
                                        bg_result.group(0), art, post)
 
+            # Local Bad Body
+            if self.local_bad_body:
+                bb_result = self.local_bad_body.search(art[__BODY__])
+                if bb_result:
+                    return self.reject("Local Bad Body (%s)" % \
+                                       bb_result.group(0), art, post)
+
         # Misplaced binary check
-        if config.getboolean('binary', 'reject_all'):
-            isbin = self.binary.isbin(art)
-            if isbin:
+        isbin = self.binary.isbin(art)
+        if isbin == 'binary':
+            if config.getboolean('binary', 'reject_suspected'):
+                return self.reject("Binary (%s)" % isbin, art, post)
+            else:
+                self.logart("Binary Suspect", art, post, "bin_suspect",
+                            trim=False)
+        elif isbin:
+            if (config.getboolean('binary', 'reject_all') or
+                    not self.groups['binary_allowed_bool']):
                 self.binary.increment(post['feed-host'])
                 return self.reject("Binary (%s)" % isbin, art, post)
-        elif not self.groups['binary_allowed_bool']:
-            isbin = self.binary.isbin(art)
-            if isbin:
-                self.binary.increment(post['feed-host'])
-                return self.reject("Binary Misplaced (%s)" % isbin, art, post)
+
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
           config.getboolean('filters', 'reject_html') and
@@ -653,6 +660,8 @@ class Filter():
         self.local_bad_from = self.regex_file('local_bad_from')
         logging.debug('Compiling local_bad_groups regex')
         self.local_bad_groups = self.regex_file('local_bad_groups')
+        logging.debug('Compiling local_bad_body regex')
+        self.bad_body = self.regex_file('local_bad_body')
         logging.debug('Compiling log_from regex')
         self.log_from = self.regex_file('log_from')
         if not startup:
