@@ -26,7 +26,7 @@ setup(
     name='pyclean',
     author='Steve Crook',
     author_email='steve@mixmin.net',
-    version='0.1',
+    version='0.2',
     packages=['pyclean', ],
     license='GPLv3',
     url='https://github.com/crooks/pyclean',

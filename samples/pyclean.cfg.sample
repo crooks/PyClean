@@ -21,8 +21,9 @@ max_crosspost = 10
 
 [paths]
 etc = /home/crooks/pyclean/etc
-logart = /home/crooks/pyclean/log/logart
+logart = /home/crooks/pyclean/articles
 log = /home/crooks/pyclean/log
+lib = /home/crooks/pyclean/lib
 
 [hostnames]
 path_hostname = true
@@ -31,7 +32,7 @@ path_hostname = true
 ph_coarse = true
 phl_threshold = 20
 body_threshold = 5
-ihn_ceiling = 10
+ihn_ceiling = 15
 fsl_maxentries = 5000
 ihn_timed_trim = 7200
 phn_maxentries = 5000
@@ -49,7 +50,7 @@ phl_ceiling = 80
 fsl_timed_trim = 3600
 fsl_ceiling = 40
 phn_ceiling = 200
-ihn_threshold = 3
+ihn_threshold = 10
 
 [filters]
 reject_html = true

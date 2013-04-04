@@ -1,3 +1,6 @@
 v0.1, 27-Apr-2012 -- Initial release.
 
-v0.2, Not yet released
+v0.2, 04-Apr-2013 -- First publicised Beta
+    Merge all the class libraries into pyclean.py.  Otherwise issuing
+    'ctlinnd reload' cannot reload them.
+    Support for local_bad_body added.
