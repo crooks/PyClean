@@ -1,0 +1,10 @@
+# -- This file needs to be placed in the pyclean/etc directory. --
+
+# If one of the following strings is present in the derived Injection-Host, it
+# will replace the content of the Injection-Host.  For example:-
+
+# Injection-Host: 123.xyz.googlegroops.com would be treated as just
+# googlegroups.com for Pyclean internal processes.
+
+googlegroups.com
+jobcircle.com
