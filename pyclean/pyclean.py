@@ -864,7 +864,8 @@ class Regex():
                        '^alt\.security\.keydist', '^mailing\.',
                        '^linux\.debian\.bugs\.dist$', '^lucky\.freebsd']
         self.bin_allowed = self.regex_compile(bin_allowed)
-        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft']
+        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
+                        '^mailing\.']
         self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
