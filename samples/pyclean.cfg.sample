@@ -1,23 +1,51 @@
 [control]
-reject_cancels = false
-reject_redundant = true
+# Turn this on to reject all cancel messages without even checking their
+# validity.
+#reject_cancels = false
+# Some control type articles are completely redundant.  This setting controls
+# if they should be processed or propagated.
+#reject_redundant = true
 
 [binary]
-lines_allowed = 15
-allow_pgp = true
-fasttrack_references = true
-reject_suspected = false
-reject_all = false
+# Above this number of binary content lines, the article will be rejected.
+#lines_allowed = 15
+
+# Grant a waiver for PGP formatted articles.  With modern, large PGP
+# signatures, setting this to false is likely to result in many signed messages
+# being rejected.
+#allow_pgp = true
+
+# If a References header is present, skip expensive binary checks.  This
+# introduces a risk of large, crafted binaries (with fake References headers)
+# being accepted.
+#fasttrack_references = true
+
+# If true, any lines containing suspicious content will count towards the overall
+# binary lines counter.  Suspicious content implies 40+ non-spaced characters.
+#reject_suspected = false
+
+# Reject all identified binary articles, regardless of what groups they appear in.
+# This setting is useful for non-binary servers that don't want the burden of
+# propagating, even correctly located, binary content.
+#reject_all = false
 
 [logging]
-logart_maxlines = 20
-retain = 7
-datefmt = %Y-%m-%d %H:%M:%S
-format = %(asctime)s %(levelname)s %(message)s
-level = info
+# Logged articles are (by default) trimmed to this number of lines.
+#logart_maxlines = 20
+
+# How many days of archived logs to retain.
+#retain = 7
+
+# What format of entries to use in log messages.  Change with great care!
+#datefmt = %Y-%m-%d %H:%M:%S
+#format = %(asctime)s %(levelname)s %(message)s
+
+# Verbosity of log messages.  This can be error, warn, info, debug.
+#level = info
 
 [groups]
-max_crosspost = 10
+# Crossposts to more groups than this will be rejected.
+#max_crosspost = 10
 
 [paths]
 etc = /home/crooks/pyclean/etc
@@ -57,3 +85,4 @@ reject_html = true
 newsguy = true
 reject_multipart = false
 
+# vim: tabstop=4 expandtab shiftwidth=4 autoindent syntax=config
