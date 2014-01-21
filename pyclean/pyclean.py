@@ -219,7 +219,8 @@ class Binary():
             return False
         # Also avoid these costly checks where a References header is present.
         if ('References' in art and str(art['References']).startswith('<') and
-            config.getboolean('binary', 'fasttrack_references')):
+            config.getboolean('binary', 'fasttrack_references') and
+            int(art[__LINES__]) > 500):
             return False
         # Base64 and suspect binary matching
         b64match = 0
@@ -718,6 +719,14 @@ class Filter():
                     continue
                 # If processing gets here, the entry is a valid regex.
                 bad_items.append(valid.group(1))
+            elif line.lstrip().startswith('#'):
+                # Don't do anything, it's a comment line
+                pass
+            elif len(line.strip()) == 0:
+                # Blank lines are fine
+                pass
+            else:
+                logging.warn("Invalid line in %s: %s", filename, line)
         f.close()
         if len(bad_items) == 0:
             # No valid entires exist in the file.
