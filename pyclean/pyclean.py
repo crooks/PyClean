@@ -707,6 +707,11 @@ class Filter():
         fqfn = os.path.join(config.get('paths', 'etc'), filename)
         if not os.path.isfile(fqfn):
             logging.debug('%s: Bad file not found' % filename)
+            if filename in self.bad_regexs:
+                # The file has been deleted so delete the regex.
+                self.bad_regexs.pop(filename, None)
+                # Reset the last_modified date to zero
+                self.bad_file[filename] = 0
             return False
         current_mod_stamp = os.path.getmtime(fqfn)
         recorded_mod_stamp = self.bad_files[filename]
