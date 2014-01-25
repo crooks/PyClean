@@ -18,6 +18,8 @@
 ##   - syslog(level, message)
 
 import INN
+#from Config import config
+#import timing
 from pyclean.Config import config
 import pyclean.timing
 
@@ -188,8 +190,8 @@ class Binary():
     def report(self):
         fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
         f = open(fn, 'w')
-        f.write('# Binary feeders report - %s\n\n' % \
-                                            pyclean.timing.nowstamp())
+        f.write('# Binary feeders report - %s\n\n'
+                % pyclean.timing.nowstamp())
         for e in self.feedhosts.keys():
             f.write('%s: %s\n' % (e, self.feedhosts[e]))
         f.close()
@@ -218,16 +220,19 @@ class Binary():
         if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
         # Also avoid these costly checks where a References header is present.
-        if ('References' in art and str(art['References']).startswith('<') and
-            config.getboolean('binary', 'fasttrack_references') and
-            int(art[__LINES__]) > 500):
+        skip_refs = ('References' in art and
+                     str(art['References']).startswith('<') and
+                     config.getboolean('binary', 'fasttrack_references') and
+                     int(art[__LINES__]) > 500)
+        if skip_refs:
             return False
         # Base64 and suspect binary matching
         b64match = 0
         suspect = 0
         for line in str(art[__BODY__]).split('\n'):
-            if (line.startswith('-----BEGIN PGP') and
-                config.getboolean('binary', 'allow_pgp')):
+            skip_pgp = (line.startswith('-----BEGIN PGP')
+                        and config.getboolean('binary', 'allow_pgp'))
+            if skip_pgp:
                 break
             # Resetting the next counter to zero on a non-matching line
             # dictates the counted base64 lines must be consecutive.
@@ -265,6 +270,18 @@ class Filter():
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
         # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
         self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
+
+        # A dictionary of files containing regexs that need to be reloaded and
+        # compiled if the timestamp on them changes.  The dict content is the
+        # timestamp (initially zeroed).
+        bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
+                         'ihn_hosts', 'local_hosts', 'local_bad_from',
+                         'local_bad_groups', 'local_bad_body', 'log_from']
+        bad_files = {f:0 for f in bad_file_list}
+        self.bad_files = bad_files
+        # A dict of the regexs compiled from the bad_files defined above.
+        self.bad_regexs = {}
+
         # Hostname - Not a 100% perfect regex but probably good enough.
         self.regex_hostname = re.compile('([a-zA-Z0-9]|[a-zA-Z0-9]'
                                          '[a-zA-Z0-9\-]+[a-zA-Z0-9])'
@@ -455,53 +472,55 @@ class Filter():
             return self.reject("OS2 Followup", art, post)
 
         # Compare headers against regex files
-        if self.log_from:
-            lf_result = self.log_from.search(art[From])
+        if 'log_from' in self.bad_regexs:
+            lf_result = self.bad_regexs['log_from'].search(art[From])
             if lf_result:
                 self.logart(lf_result.group(0), art, post, 'log_from',
                             trim=False)
-        if self.bad_groups:
-            bg_result = self.bad_groups.search(art[Newsgroups])
+        if 'bad_groups' in self.bad_regexs:
+            bg_result = self.bad_regexs['bad_groups'].search(art[Newsgroups])
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
                                    art, post)
-        if self.bad_from:
-            bf_result = self.bad_from.search(art[From])
+        if 'bad_from' in self.bad_regexs:
+            bf_result = self.bad_regexs['bad_from'].search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
                                    art, post)
-        if self.bad_body:
-            bb_result = self.bad_body.search(art[__BODY__])
+        if 'bad_body' in self.bad_regexs:
+            bb_result = self.bad_regexs['bad_body'].search(art[__BODY__])
             if bb_result:
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
         if ('posting-host' in post and
-            not 'bad_posting-host' in post and self.bad_posthost):
-            bp_result = self.bad_posthost.search(post['posting-host'])
+            not 'bad_posting-host' in post and
+            'bad_posthost' in self.bad_regexs):
+            bp_result = self.bad_regexs['bad_posthost'].search(post['posting-host'])
             if bp_result:
                 return self.reject("Bad Posting-Host (%s)" % \
                                    bp_result.group(0), art, post)
 
         # Is the source of the post considered local?
-        if ('injection-host' in post and self.local_hosts and
-          self.local_hosts.search(post['injection-host'])):
+        if ('injection-host' in post and
+            'local_hosts' in self.bad_regexs and
+            self.bad_regexs['local_hosts'].search(post['injection-host'])):
             self.logart('Local Post', art, post, 'local_post')
             # Local Bad From
-            if self.local_bad_from:
-                bf_result = self.local_bad_from.search(art[From])
+            if 'local_bad_from' in self.bad_regexs:
+                bf_result = self.bad_regexs['local_bad_from'].search(art[From])
                 if bf_result:
                     return self.reject("Local Bad From (%s)" % \
                                        bf_result.group(0), art, post)
             # Local Bad Groups
-            if self.local_bad_groups:
-                bg_result = self.local_bad_groups.search(art[Newsgroups])
+            if 'local_bad_groups' in self.bad_regexs:
+                bg_result = self.bad_regexs['local_bad_groups'].search(art[Newsgroups])
                 if bg_result:
                     return self.reject("Local Bad Group (%s)" % \
                                        bg_result.group(0), art, post)
 
             # Local Bad Body
-            if self.local_bad_body:
-                bb_result = self.local_bad_body.search(art[__BODY__])
+            if 'local_bad_body' in self.bad_regexs:
+                bb_result = self.bad_regexs['local_bad_body'].search(art[__BODY__])
                 if bb_result:
                     return self.reject("Local Bad Body (%s)" % \
                                        bb_result.group(0), art, post)
@@ -574,7 +593,7 @@ class Filter():
             # Beginning of IHN filter
             if ('injection-host' in post and
                 not self.groups['ihn_exclude_bool']):
-                ihn_result = self.ihn_hosts.search(post['injection-host'])
+                ihn_result = self.bad_regexs['ihn_hosts'].search(post['injection-host'])
                 if (ihn_result and
                   self.emp_ihn.add(post['injection-host'] + ngs)):
                     return self.reject("EMP IHN Reject", art, post)
@@ -600,7 +619,7 @@ class Filter():
             if reason.startswith(logrule):
                 self.logart(reason, art, post, self.log_rules[logrule])
                 break
-        logging.debug("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
         return reason
 
     def logart(self, reason, art, post, filename, trim=True):
@@ -632,7 +651,10 @@ class Filter():
         this instance.
 
         """
-        logging.info('Performing hourly tasks')
+        if startup:
+            logging.info("Performing startup tasks")
+        else:
+            logging.info('Performing hourly tasks')
         self.emp_body.statlog()
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
@@ -645,26 +667,10 @@ class Filter():
         logging.debug('Reloading Injection-Host substrings')
         self.ihsubs = self.file2list('ih_substrings')
         # Set up Regular Expressions
-        logging.debug('Compiling bad_from regex')
-        self.bad_from = self.regex_file('bad_from')
-        logging.debug('Compiling bad_groups regex')
-        self.bad_groups = self.regex_file('bad_groups')
-        logging.debug('Compiling bad_posthost regex')
-        self.bad_posthost = self.regex_file('bad_posthost')
-        logging.debug('Compiling bad_body regex')
-        self.bad_body = self.regex_file('bad_body')
-        logging.debug('Compiling ihn_hosts regex')
-        self.ihn_hosts = self.regex_file('ihn_hosts')
-        logging.debug('Compiling local_hosts regex')
-        self.local_hosts = self.regex_file('local_hosts')
-        logging.debug('Compiling local_bad_from regex')
-        self.local_bad_from = self.regex_file('local_bad_from')
-        logging.debug('Compiling local_bad_groups regex')
-        self.local_bad_groups = self.regex_file('local_bad_groups')
-        logging.debug('Compiling local_bad_body regex')
-        self.bad_body = self.regex_file('local_bad_body')
-        logging.debug('Compiling log_from regex')
-        self.log_from = self.regex_file('log_from')
+        for fn in self.bad_files.keys():
+            new_regex = self.regex_file(fn)
+            if new_regex:
+                self.bad_regexs[fn] = new_regex
         if not startup:
             # Re-read the config file.
             configfile = os.path.join(config.get('paths', 'etc'),
@@ -696,10 +702,19 @@ class Filter():
         individual regex's on each line that have not yet expired.
 
         """
+        logging.debug('Testing %s regex condition', filename)
         fqfn = os.path.join(config.get('paths', 'etc'), filename)
         if not os.path.isfile(fqfn):
             logging.debug('%s: Bad file not found' % filename)
             return False
+        current_mod_stamp = os.path.getmtime(fqfn)
+        recorded_mod_stamp = self.bad_files[filename]
+        if current_mod_stamp <= recorded_mod_stamp:
+            logging.debug('%s: File not modified so not recompiling',
+                          filename)
+            return False
+        # The file has been modified, so reset its modstamp
+        self.bad_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
         now = pyclean.timing.now()
@@ -728,7 +743,8 @@ class Filter():
             else:
                 logging.warn("Invalid line in %s: %s", filename, line)
         f.close()
-        if len(bad_items) == 0:
+        num_bad_items = len(bad_items)
+        if num_bad_items == 0:
             # No valid entires exist in the file.
             logging.debug('%s: No valid entries found' % filename)
             return False
@@ -736,6 +752,7 @@ class Filter():
         # This should never happen but best to check as || will match
         # everything.
         regex = regex.replace('||', '|')
+        logging.info("Compiled %s rules from %s", num_bad_items, filename)
         return re.compile(regex)
 
     def file2list(self, filename):
