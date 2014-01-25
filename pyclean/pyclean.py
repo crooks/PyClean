@@ -277,7 +277,7 @@ class Filter():
         bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
                          'ihn_hosts', 'local_hosts', 'local_bad_from',
                          'local_bad_groups', 'local_bad_body', 'log_from']
-        bad_files = {f:0 for f in bad_file_list}
+        bad_files = {f: 0 for f in bad_file_list}
         self.bad_files = bad_files
         # A dict of the regexs compiled from the bad_files defined above.
         self.bad_regexs = {}
@@ -290,7 +290,7 @@ class Filter():
         self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
         # Match email addresses
         self.regex_email = \
-                re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
+            re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
         # Colon/Space seperated fields
         self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\S+)')
         # Redundant control message types
@@ -344,7 +344,7 @@ class Filter():
         # Attempt to split the From address into component parts
         if 'From' in art:
             post['from_name'], \
-            post['from_email'] = email.utils.parseaddr(art['From'])
+                post['from_email'] = email.utils.parseaddr(art['From'])
 
         # Try to establish the injection-host, posting-host and
         # posting-account
@@ -406,7 +406,7 @@ class Filter():
             isbad_ph = self.groups.regex.bad_ph.search(post['posting-host'])
             if isbad_ph:
                 post['bad-posting-host'] = isbad_ph.group(0)
-                logging.debug('Bad posting host: %s' % \
+                logging.debug('Bad posting host: %s',
                               post['bad-posting-host'])
 
         # The host that fed us this article is first in the Path header.
@@ -433,10 +433,10 @@ class Filter():
                 return self.reject('Control %s with Supersedes header'
                                    % ctrltype, art, post)
             if (ctrltype == 'cancel' and
-              config.getboolean('control', 'reject_cancels')):
+                    config.getboolean('control', 'reject_cancels')):
                 return self.reject("Control cancel", art, post)
             elif (ctrltype in self.redundant_controls and
-              config.getboolean('control', 'reject_redundant')):
+                  config.getboolean('control', 'reject_redundant')):
                 return self.reject("Redundant Control Type: %s" % ctrltype)
             else:
                 logging.info('Control: %s, mid=%s' % (art[Control], mid))
@@ -458,17 +458,17 @@ class Filter():
 
         # Newsguy are evil sex spammers
         if ('newsguy.com' in mid and
-            config.getboolean('filters', 'newsguy') and
-            'alt.sex' in str(art[Newsgroups])):
+                config.getboolean('filters', 'newsguy') and
+                'alt.sex' in str(art[Newsgroups])):
             return self.reject("Newsguy Sex", art, post)
 
         # For some reason, this OS2 group has become kook central
         if (art[Newsgroups] and
-            'comp.os.os2.advocacy' in str(art[Newsgroups]) and
-            self.groups['count'] > 1):
+                'comp.os.os2.advocacy' in str(art[Newsgroups]) and
+                self.groups['count'] > 1):
             return self.reject("OS2 Crosspost", art, post)
         if (art[Followup_To] and
-            'comp.os.os2.advocacy' in str(art[Followup_To])):
+                'comp.os.os2.advocacy' in str(art[Followup_To])):
             return self.reject("OS2 Followup", art, post)
 
         # Compare headers against regex files
@@ -493,37 +493,35 @@ class Filter():
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
         if ('posting-host' in post and
-            not 'bad_posting-host' in post and
-            'bad_posthost' in self.bad_regexs):
-            bp_result = self.bad_regexs['bad_posthost'].search(post['posting-host'])
-            if bp_result:
-                return self.reject("Bad Posting-Host (%s)" % \
-                                   bp_result.group(0), art, post)
+                not 'bad_posting-host' in post and
+                'bad_posthost' in self.bad_regexs):
+            if self.bad_regexs['bad_posthost'].search(post['posting-host']):
+                return self.reject("Bad Posting-Host (%s)"
+                                   % bp_result.group(0), art, post)
 
         # Is the source of the post considered local?
         if ('injection-host' in post and
-            'local_hosts' in self.bad_regexs and
-            self.bad_regexs['local_hosts'].search(post['injection-host'])):
+                'local_hosts' in self.bad_regexs and
+                self.bad_regexs['local_hosts'].search(post['injection-host'])):
             self.logart('Local Post', art, post, 'local_post')
             # Local Bad From
             if 'local_bad_from' in self.bad_regexs:
                 bf_result = self.bad_regexs['local_bad_from'].search(art[From])
                 if bf_result:
-                    return self.reject("Local Bad From (%s)" % \
-                                       bf_result.group(0), art, post)
+                    return self.reject("Local Bad From (%s)"
+                                       % bf_result.group(0), art, post)
             # Local Bad Groups
-            if 'local_bad_groups' in self.bad_regexs:
-                bg_result = self.bad_regexs['local_bad_groups'].search(art[Newsgroups])
-                if bg_result:
-                    return self.reject("Local Bad Group (%s)" % \
-                                       bg_result.group(0), art, post)
+            if ('local_bad_groups' in self.bad_regexs and
+                    self.bad_regexs['local_bad_groups'].search(art[Newsgroups]
+                                                               )):
+                return self.reject("Local Bad Group (%s)"
+                                   % bg_result.group(0), art, post)
 
             # Local Bad Body
-            if 'local_bad_body' in self.bad_regexs:
-                bb_result = self.bad_regexs['local_bad_body'].search(art[__BODY__])
-                if bb_result:
-                    return self.reject("Local Bad Body (%s)" % \
-                                       bb_result.group(0), art, post)
+            if ('local_bad_body' in self.bad_regexs and
+                    self.bad_regexs['local_bad_body'].search(art[__BODY__])):
+                return self.reject("Local Bad Body (%s)"
+                                   % bb_result.group(0), art, post)
 
         # Misplaced binary check
         isbin = self.binary.isbin(art)
@@ -541,8 +539,8 @@ class Filter():
 
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
-          config.getboolean('filters', 'reject_html') and
-          art[Content_Type] is not None):
+                config.getboolean('filters', 'reject_html') and
+                art[Content_Type] is not None):
             if 'text/html' in str(art[Content_Type]).lower():
                 return self.reject("HTML Misplaced", art, post)
             if 'multipart' in art[Content_Type]:
@@ -553,7 +551,7 @@ class Filter():
 
         # Start of EMP checks
         if (not self.groups['emp_exclude_bool'] and
-            not self.groups['test_bool']):
+                not self.groups['test_bool']):
             # Create a sorted Newsgroups header to prevent reordering to
             # circumvent EMP.
             ngs = ','.join(sorted(str(art[Newsgroups]).lower().split(',')))
@@ -567,7 +565,7 @@ class Filter():
                 # If we can't trust the info in posting-host, use the
                 # injection-host. This is a worst-case scenario.
                 if ('injection-host' in post and
-                    config.getboolean('emp', 'ph_coarse')):
+                        config.getboolean('emp', 'ph_coarse')):
                     fodder = post['injection-host']
                 else:
                     fodder = None
@@ -592,10 +590,11 @@ class Filter():
                 return self.reject("EMP FSL Reject", art, post)
             # Beginning of IHN filter
             if ('injection-host' in post and
-                not self.groups['ihn_exclude_bool']):
-                ihn_result = self.bad_regexs['ihn_hosts'].search(post['injection-host'])
+                    not self.groups['ihn_exclude_bool']):
+                ihn_result = self.bad_regexs['ihn_hosts']. \
+                    search(post['injection-host'])
                 if (ihn_result and
-                  self.emp_ihn.add(post['injection-host'] + ngs)):
+                        self.emp_ihn.add(post['injection-host'] + ngs)):
                     return self.reject("EMP IHN Reject", art, post)
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
@@ -605,11 +604,13 @@ class Filter():
 
         # Filtering complete, here are some post-filter actions.
         if (self.groups['auk_bool'] and 'injection-host' in post and
-            post['from_email']):
+                post['from_email']):
             self.batchlog_auk.add("%s,%s,%s"
-                    % (pyclean.timing.nowstamp(),
-                       post['from_email'],
-                       post['injection-host'].replace(',', '_')))
+                                  % (pyclean.timing.nowstamp(),
+                                     post['from_email'],
+                                     post['injection-host'].replace(',', '_')
+                                     )
+                                  )
 
         # The article passed all checks. Return an empty string.
         return ""
@@ -634,11 +635,11 @@ class Filter():
             f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
         if (not trim or
-          art[__LINES__] <= config.get('logging', 'logart_maxlines')):
+                art[__LINES__] <= config.get('logging', 'logart_maxlines')):
             f.write(art[__BODY__])
         else:
-            for line in str(art[__BODY__]).split('\n',
-                        config.get('logging', 'logart_maxlines'))[:-1]:
+            maxlines = config.get('logging', 'logart_maxlines')
+            for line in str(art[__BODY__]).split('\n', maxlines)[:-1]:
                 f.write(line + "\n")
             f.write('[snip]')
         f.write('\n\n')
@@ -674,7 +675,7 @@ class Filter():
         if not startup:
             # Re-read the config file.
             configfile = os.path.join(config.get('paths', 'etc'),
-                                                 'pyclean.cfg')
+                                      'pyclean.cfg')
             logging.info("Reloading config file: %s" % configfile)
             if os.path.isfile(configfile):
                 config.read(configfile)
@@ -910,12 +911,13 @@ class Regex():
 
 
 class EMP():
-    def __init__(self, threshold=3,
-                       ceiling=100,
-                       maxentries=5000,
-                       timedtrim=3600,
-                       dofuzzy=False,
-                       name=False):
+    def __init__(self,
+                 threshold=3,
+                 ceiling=100,
+                 maxentries=5000,
+                 timedtrim=3600,
+                 dofuzzy=False,
+                 name=False):
         # Statistics relating to this EMP instance
         if threshold > ceiling:
             raise ValueError('Threshold cannot exceed ceiling')
@@ -927,16 +929,16 @@ class EMP():
         self.fuzzy_15char = re.compile('\S{15,}')
         self.fuzzy_notletters = re.compile('[^a-zA-Z]')
         # Initialize some defaults
-        self.stats = {'name':       name,
-                      'nexttrim':   pyclean.timing.future(secs=timedtrim),
-                      'processed':  0,
-                      'accepted':   0,
-                      'rejected':   0,
-                      'threshold':  threshold,
-                      'ceiling':    ceiling,
+        self.stats = {'name': name,
+                      'nexttrim': pyclean.timing.future(secs=timedtrim),
+                      'processed': 0,
+                      'accepted': 0,
+                      'rejected': 0,
+                      'threshold': threshold,
+                      'ceiling': ceiling,
                       'maxentries': maxentries,
-                      'timedtrim':  timedtrim,
-                      'dofuzzy':    dofuzzy}
+                      'timedtrim': timedtrim,
+                      'dofuzzy': dofuzzy}
         logmes = '%(name)s initialized. '
         logmes += 'threshold=%(threshold)s, '
         logmes += 'ceiling=%(ceiling)s, '
@@ -1009,7 +1011,7 @@ class EMP():
         logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s',
                      self.stats)
         self.stats['nexttrim'] = \
-                    pyclean.timing.future(secs=self.stats['timedtrim'])
+            pyclean.timing.future(secs=self.stats['timedtrim'])
 
     def statlog(self):
         """Log details of the EMP hash."""
@@ -1066,11 +1068,11 @@ if not 'python_filter' in dir():
                  'warn': logging.WARN, 'error': logging.ERROR}
     logging.getLogger().setLevel(logging.DEBUG)
     logfile = logging.handlers.TimedRotatingFileHandler(
-                    os.path.join(config.get('paths', 'log'), 'pyclean.log'),
-                    when='midnight',
-                    interval=1,
-                    backupCount=config.getint('logging', 'retain'),
-                    utc=True)
+        os.path.join(config.get('paths', 'log'), 'pyclean.log'),
+        when='midnight',
+        interval=1,
+        backupCount=config.getint('logging', 'retain'),
+        utc=True)
     logfile.setLevel(loglevels[config.get('logging', 'level')])
     logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
     logging.getLogger().addHandler(logfile)
