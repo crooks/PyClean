@@ -262,9 +262,6 @@ class Filter():
         # Initialize Binary Filters
         self.binary = Binary()
 
-        # Initialize the AUK posters log
-        self.batchlog_auk = BatchLog(100, "auklog")
-
         # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
@@ -602,16 +599,6 @@ class Filter():
                 if self.emp_body.add(art[__BODY__]):
                     return self.reject("EMP Body Reject", art, post)
 
-        # Filtering complete, here are some post-filter actions.
-        if (self.groups['auk_bool'] and 'injection-host' in post and
-                post['from_email']):
-            self.batchlog_auk.add("%s,%s,%s"
-                                  % (pyclean.timing.nowstamp(),
-                                     post['from_email'],
-                                     post['injection-host'].replace(',', '_')
-                                     )
-                                  )
-
         # The article passed all checks. Return an empty string.
         return ""
 
@@ -802,41 +789,11 @@ class Filter():
         """
         logging.info("Running shutdown tasks")
         # Write to file any entries in the stack
-        self.batchlog_auk.stack_write()
         self.emp_body.dump()
         self.emp_fsl.dump()
         self.emp_phl.dump()
         self.emp_phn.dump()
         self.emp_ihn.dump()
-
-
-class BatchLog():
-    """This class stacks up log-type entries until a predefined limit is
-    reached.  At that point it writes them to a file and starts again.
-
-    """
-    def __init__(self, stacksize, filename):
-        self.stacksize = stacksize
-        self.filename = os.path.join(config.get('paths', 'log'), filename)
-        # Initialize the stack itself
-        self.stack = []
-
-    def stack_write(self):
-        if len(self.stack) == 0:
-            logging.info("stack_write called but no entries to write.")
-        else:
-            f = open(self.filename, 'a')
-            for entry in self.stack:
-                f.write(entry + "\n")
-            logging.info("Batchlog wrote %s entries to %s"
-                         % (len(self.stack), self.filename))
-            f.close()
-            self.stack = []
-
-    def add(self, entry):
-        self.stack.append(entry)
-        if len(self.stack) >= self.stacksize:
-            self.stack_write()
 
 
 class Groups():
@@ -873,11 +830,6 @@ class Groups():
         for ngelement in self.grp.keys():
             ngbool = '%s_bool' % ngelement
             self.grp[ngbool] = self.grp[ngelement] == self.grp['count']
-        # alt.usenet.kooks boolean
-        if 'alt.usenet.kooks' in nglist:
-            self.grp['auk_bool'] = True
-        else:
-            self.grp['auk_bool'] = False
 
 
 class Regex():
