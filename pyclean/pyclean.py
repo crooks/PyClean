@@ -290,6 +290,9 @@ class Filter():
             re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
         # Colon/Space seperated fields
         self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\S+)')
+        # Content-Type: text/plain; charset=utf-8
+        self.regex_ct = re.compile("\s*([^;]+)")
+        self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -342,6 +345,14 @@ class Filter():
         if 'From' in art:
             post['from_name'], \
                 post['from_email'] = email.utils.parseaddr(art['From'])
+
+        if art[Content_Type] is not None:
+            ct = self.regex_ct.match(art[Content_Type])
+            if ct:
+                post['content_type'] = ct.group(1).lower()
+            ctcs = self.regex_ctcs.search(art[Content_Type])
+            if ctcs:
+                post['charset'] = ctcs.group(1).lower()
 
         # Try to establish the injection-host, posting-host and
         # posting-account
@@ -530,17 +541,17 @@ class Filter():
                             trim=False)
         elif isbin:
             if (config.getboolean('binary', 'reject_all') or
-                    not self.groups['binary_allowed_bool']):
+                    not self.groups['bin_allowed_bool']):
                 self.binary.increment(post['feed-host'])
                 return self.reject("Binary (%s)" % isbin, art, post)
 
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
                 config.getboolean('filters', 'reject_html') and
-                art[Content_Type] is not None):
-            if 'text/html' in str(art[Content_Type]).lower():
+                'content_type' in post):
+            if 'text/html' in post['content_type']:
                 return self.reject("HTML Misplaced", art, post)
-            if 'multipart' in art[Content_Type]:
+            if 'multipart' in post['content_type']:
                 if config.getboolean('filters', 'reject_multipart'):
                     return self.reject("MIME Multpart", art, post)
                 else:
@@ -853,7 +864,8 @@ class Regex():
         self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
-                       '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.']
+                       '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.',
+                       '^gnu\.']
         self.emp_exclude = self.regex_compile(emp_exclude)
         # Exclude groups from IHN filter
         ihn_exclude = ['^alt\.anonymous', '^alt\.privacy']
