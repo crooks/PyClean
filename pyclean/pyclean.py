@@ -467,12 +467,11 @@ class Filter():
         # Newsguy are evil sex spammers
         if ('newsguy.com' in mid and
                 config.getboolean('filters', 'newsguy') and
-                'alt.sex' in str(art[Newsgroups])):
+                'alt.sex' in self.groups['groups']):
             return self.reject("Newsguy Sex", art, post)
 
         # For some reason, this OS2 group has become kook central
-        if (art[Newsgroups] and
-                'comp.os.os2.advocacy' in str(art[Newsgroups]) and
+        if ('comp.os.os2.advocacy' in self.groups['groups'] and
                 self.groups['count'] > 1):
             return self.reject("OS2 Crosspost", art, post)
         if (art[Followup_To] and
@@ -560,9 +559,7 @@ class Filter():
         # Start of EMP checks
         if (not self.groups['emp_exclude_bool'] and
                 not self.groups['test_bool']):
-            # Create a sorted Newsgroups header to prevent reordering to
-            # circumvent EMP.
-            ngs = ','.join(sorted(str(art[Newsgroups]).lower().split(',')))
+            ngs = ','.join(self.groups['groups'])
             # Start of posting-host based checks.
             # First try and seed some filter fodder.
             if 'posting-account' in post:
@@ -821,8 +818,8 @@ class Groups():
 
     def analyze(self, newsgroups):
         self.grp = defaultdict(lambda: 0)
-        nglist = str(newsgroups).split(',')
-        self.grp['count'] = len(nglist)
+        nglist = str(newsgroups).lower().split(',')
+        count = len(nglist)
         for ng in nglist:
             if self.regex.test.search(ng):
                 self.grp['test'] += 1
@@ -840,7 +837,9 @@ class Groups():
         # generically then specifically.
         for ngelement in self.grp.keys():
             ngbool = '%s_bool' % ngelement
-            self.grp[ngbool] = self.grp[ngelement] == self.grp['count']
+            self.grp[ngbool] = self.grp[ngelement] == count
+        self.grp['groups'] = sorted(nglist)
+        self.grp['count'] = count
 
 
 class Regex():
