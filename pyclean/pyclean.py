@@ -467,7 +467,8 @@ class Filter():
         # Newsguy are evil sex spammers
         if ('newsguy.com' in mid and
                 config.getboolean('filters', 'newsguy') and
-                'alt.sex' in self.groups['groups']):
+                'sex_groups' in self.groups and
+                self.groups['sex_groups'] > 0):
             return self.reject("Newsguy Sex", art, post)
 
         # For some reason, this OS2 group has become kook central
@@ -838,6 +839,8 @@ class Groups():
                 self.grp['ihn_exclude'] += 1
             if self.regex.html_allowed.search(ng):
                 self.grp['html_allowed'] += 1
+            if self.regex.sex_groups.search(ng):
+                self.grp['sex_groups'] += 1
             if INN.newsgroup(ng) == 'm':
                 self.grp['moderated'] += 1
         # Not all bools will be meaningful but it's easier to create them
@@ -879,6 +882,9 @@ class Regex():
         # Bad posting-hosts
         bad_ph = ['newsguy\.com', 'tornevall\.net']
         self.bad_ph = self.regex_compile(bad_ph)
+        # Sex groups
+        sex_groups = ['^alt\.sex']
+        self.sex_groups = self.regex_compile(sex_groups)
 
     def regex_compile(self, regexlist):
         textual = '|'.join(regexlist).replace('||', '|')
