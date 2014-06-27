@@ -531,7 +531,14 @@ class Filter():
                                    % bb_result.group(0), art, post)
 
         # Misplaced binary check
-        isbin = self.binary.isbin(art)
+        if self.groups['bin_allowed_bool']:
+            # All groups in the post match bin_allowed groups
+            isbin = False
+        else:
+            # Potentially expensive check if article contains binary
+            isbin = self.binary.isbin(art)
+        # Generic 'binary' means it looks binary-like but doesn't match any
+        # known encoding method.
         if isbin == 'binary':
             if config.getboolean('binary', 'reject_suspected'):
                 return self.reject("Binary (%s)" % isbin, art, post)
@@ -539,10 +546,8 @@ class Filter():
                 self.logart("Binary Suspect", art, post, "bin_suspect",
                             trim=False)
         elif isbin:
-            if (config.getboolean('binary', 'reject_all') or
-                    not self.groups['bin_allowed_bool']):
-                self.binary.increment(post['feed-host'])
-                return self.reject("Binary (%s)" % isbin, art, post)
+            self.binary.increment(post['feed-host'])
+            return self.reject("Binary (%s)" % isbin, art, post)
 
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
@@ -821,6 +826,8 @@ class Groups():
         nglist = str(newsgroups).lower().split(',')
         count = len(nglist)
         for ng in nglist:
+            # Strip whitespace from individual Newsgroups
+            ng = ng.strip()
             if self.regex.test.search(ng):
                 self.grp['test'] += 1
             if self.regex.bin_allowed.search(ng):
