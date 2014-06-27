@@ -514,22 +514,26 @@ class Filter():
             self.logart('Local Post', art, post, 'local_post')
             # Local Bad From
             if 'local_bad_from' in self.bad_regexs:
-                bf_result = self.bad_regexs['local_bad_from'].search(art[From])
+                reg = self.bad_regexs['local_bad_from']
+                bf_result = reg.search(art[From])
                 if bf_result:
                     return self.reject("Local Bad From (%s)"
                                        % bf_result.group(0), art, post)
             # Local Bad Groups
-            if ('local_bad_groups' in self.bad_regexs and
-                    self.bad_regexs['local_bad_groups'].search(art[Newsgroups]
-                                                               )):
-                return self.reject("Local Bad Group (%s)"
-                                   % bg_result.group(0), art, post)
+            if 'local_bad_groups' in self.bad_regexs:
+                reg = self.bad_regexs['local_bad_groups']
+                bg_result = reg.search(art[Newsgroups])
+                if bg_result:
+                    return self.reject("Local Bad Group (%s)"
+                                       % bg_result.group(0), art, post)
 
             # Local Bad Body
-            if ('local_bad_body' in self.bad_regexs and
-                    self.bad_regexs['local_bad_body'].search(art[__BODY__])):
-                return self.reject("Local Bad Body (%s)"
-                                   % bb_result.group(0), art, post)
+            if 'local_bad_body' in self.bad_regexs:
+                reg = self.bad_regexs['local_bad_body']
+                bb_result = reg.search(art[__BODY__])
+                if bb_result:
+                    return self.reject("Local Bad Body (%s)"
+                                       % bb_result.group(0), art, post)
 
         # Misplaced binary check
         if self.groups['bin_allowed_bool']:
