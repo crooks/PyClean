@@ -870,7 +870,7 @@ class Regex():
                        '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
                        '^sfnet\.tiedostot', '^fido\.', '^unidata\.',
                        '^alt\.security\.keydist', '^mailing\.',
-                       '^linux\.debian\.bugs\.dist$', '^lucky\.freebsd']
+                       '^linux\.', '^lucky\.freebsd', '^gnus\.']
         self.bin_allowed = self.regex_compile(bin_allowed)
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
                         '^mailing\.']
