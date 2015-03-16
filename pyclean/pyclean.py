@@ -273,7 +273,10 @@ class Filter():
         # timestamp (initially zeroed).
         bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
                          'ihn_hosts', 'local_hosts', 'local_bad_from',
-                         'local_bad_groups', 'local_bad_body', 'log_from']
+                         'local_bad_groups', 'local_bad_body', 'log_from',
+                         'bad_groups_dizum']
+        # Each bad_file key contains a timestamp of last-modified time.
+        # Setting all keys to zero ensures they are processed on first run.
         bad_files = {f: 0 for f in bad_file_list}
         self.bad_files = bad_files
         # A dict of the regexs compiled from the bad_files defined above.
@@ -490,6 +493,14 @@ class Filter():
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
                                    art, post)
+        if ('injection-host' in post and
+                post['injection-host'] == 'sewer.dizum.com' and
+                'bad_groups_dizum' in self.bad_regexs):
+            bgd_result = self.bad_regexs['bad_groups_dizum'].search(art[Newsgroups])
+            if bgd_result:
+                return self.reject("Bad Dizum Group (%s)"
+                                   % bgd_result.group(0), art, post)
+
         if 'bad_from' in self.bad_regexs:
             bf_result = self.bad_regexs['bad_from'].search(art[From])
             if bf_result:
