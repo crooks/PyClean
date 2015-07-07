@@ -235,13 +235,15 @@ class Binary():
             if skip_pgp:
                 break
             # Resetting the next counter to zero on a non-matching line
-            # dictates the counted base64 lines must be consecutive.
+            # dictates the counted binary lines must be consecutive.
             if self.regex_base64.match(line):
                 b64match += 1
             else:
                 b64match = 0
             if self.regex_binary.match(line):
                 suspect += 1
+            else:
+                suspect = 0
             if b64match > config.get('binary', 'lines_allowed'):
                 return 'base64'
             if suspect > config.get('binary', 'lines_allowed'):
@@ -732,9 +734,14 @@ class Filter():
         current_mod_stamp = os.path.getmtime(fqfn)
         recorded_mod_stamp = self.bad_files[filename]
         if current_mod_stamp <= recorded_mod_stamp:
-            logging.debug('%s: File not modified so not recompiling',
+            logging.info('%s: File not modified so not recompiling',
                           filename)
             return False
+        # Mod stamp is initialized at 0 so, in effect, this means, ignore
+        # on startup.
+        elif current_mod_stamp > 0:
+            logging.info('%s: File has been modified.  Recompiling regexs.',
+                         filename)
         # The file has been modified, so reset its modstamp
         self.bad_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
