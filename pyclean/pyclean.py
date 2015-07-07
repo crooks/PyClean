@@ -888,7 +888,8 @@ class Regex():
                        '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
                        '^sfnet\.tiedostot', '^fido\.', '^unidata\.',
                        '^alt\.security\.keydist', '^mailing\.',
-                       '^linux\.', '^lucky\.freebsd', '^gnus\.']
+                       '^linux\.', '^lucky\.freebsd', '^gnus\.',
+                       '\.lists\.freebsd\.']
         self.bin_allowed = self.regex_compile(bin_allowed)
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
                         '^mailing\.']
