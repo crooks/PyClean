@@ -276,7 +276,7 @@ class Filter():
         bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
                          'ihn_hosts', 'local_hosts', 'local_bad_from',
                          'local_bad_groups', 'local_bad_body', 'log_from',
-                         'bad_groups_dizum']
+                         'bad_groups_dizum', 'bad_crosspost_host']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
         bad_files = {f: 0 for f in bad_file_list}
@@ -485,16 +485,38 @@ class Filter():
             return self.reject("OS2 Followup", art, post)
 
         # Compare headers against regex files
+
+        # Reject these posting-hosts
+        if ('posting-host' in post and
+                not 'bad_posting-host' in post and
+                'bad_posthost' in self.bad_regexs):
+            bph = self.bad_regexs['bad_posthost'].search(post['posting-host'])
+            if bph:
+                return self.reject("Bad Posting-Host (%s)"
+                                   % bph.group(0), art, post)
+
+        # Test posting-hosts that are not allowed to crosspost
+        if ('posting-host' in post and
+                self.groups['count'] > 1 and
+                'bad_crosspost_host' in self.bad_regexs):
+            ph = post['posting-host']
+            bph = self.bad_regexs['bad_crosspost_host'].search(ph)
+            if bph:
+                return self.reject("Bad Crosspost Host (%s)"
+                                   % bph.group(0), art, post)
+
         if 'log_from' in self.bad_regexs:
             lf_result = self.bad_regexs['log_from'].search(art[From])
             if lf_result:
                 self.logart(lf_result.group(0), art, post, 'log_from',
                             trim=False)
+
         if 'bad_groups' in self.bad_regexs:
             bg_result = self.bad_regexs['bad_groups'].search(art[Newsgroups])
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
                                    art, post)
+
         if ('injection-host' in post and
                 post['injection-host'] == 'sewer.dizum.com' and
                 'bad_groups_dizum' in self.bad_regexs):
@@ -508,17 +530,12 @@ class Filter():
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
                                    art, post)
+
         if 'bad_body' in self.bad_regexs:
             bb_result = self.bad_regexs['bad_body'].search(art[__BODY__])
             if bb_result:
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
-        if ('posting-host' in post and
-                not 'bad_posting-host' in post and
-                'bad_posthost' in self.bad_regexs):
-            if self.bad_regexs['bad_posthost'].search(post['posting-host']):
-                return self.reject("Bad Posting-Host (%s)"
-                                   % bp_result.group(0), art, post)
 
         # Is the source of the post considered local?
         if ('injection-host' in post and
@@ -737,12 +754,9 @@ class Filter():
             logging.info('%s: File not modified so not recompiling',
                           filename)
             return False
-        # Mod stamp is initialized at 0 so, in effect, this means, ignore
-        # on startup.
-        elif current_mod_stamp > 0:
-            logging.info('%s: File has been modified.  Recompiling regexs.',
-                         filename)
-        # The file has been modified, so reset its modstamp
+        # The file has been modified: Recompile the regex
+        logging.info('%s: Recompiling Regular Expression.', filename)
+        # Reset the file's modstamp
         self.bad_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
