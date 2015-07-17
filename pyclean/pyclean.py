@@ -276,7 +276,8 @@ class Filter():
         bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
                          'ihn_hosts', 'local_hosts', 'local_bad_from',
                          'local_bad_groups', 'local_bad_body', 'log_from',
-                         'bad_groups_dizum', 'bad_crosspost_host']
+                         'bad_groups_dizum', 'bad_crosspost_host',
+                         'bad_cp_groups', 'local_bad_cp_groups']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
         bad_files = {f: 0 for f in bad_file_list}
@@ -428,6 +429,14 @@ class Filter():
         # Analyze the Newsgroups header
         self.groups.analyze(art[Newsgroups])
 
+        # Is the source of the post considered local?
+        local = False
+        if ('injection-host' in post and
+                'local_hosts' in self.bad_regexs and
+                self.bad_regexs['local_hosts'].search(post['injection-host'])):
+            local = True
+            self.logart('Local Post', art, post, 'local_post')
+
         ## --- Everything below is accept / reject code ---
 
         # Reject any messages that don't have a Message-ID
@@ -505,6 +514,14 @@ class Filter():
                 return self.reject("Bad Crosspost Host (%s)"
                                    % bph.group(0), art, post)
 
+        # Groups where crossposting is not allowed
+        if (self.groups['count'] > 1 and
+                'bad_cp_groups' in self.bad_regexs):
+            bcg = self.bad_regexs['bad_cp_groups'].search(art[Newsgroups])
+            if bcg:
+                return self.reject("Bad Crosspost Group (%s)"
+                                   % bcg.group(0), art, post)
+
         if 'log_from' in self.bad_regexs:
             lf_result = self.bad_regexs['log_from'].search(art[From])
             if lf_result:
@@ -537,33 +554,38 @@ class Filter():
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
 
-        # Is the source of the post considered local?
-        if ('injection-host' in post and
-                'local_hosts' in self.bad_regexs and
-                self.bad_regexs['local_hosts'].search(post['injection-host'])):
-            self.logart('Local Post', art, post, 'local_post')
-            # Local Bad From
-            if 'local_bad_from' in self.bad_regexs:
-                reg = self.bad_regexs['local_bad_from']
-                bf_result = reg.search(art[From])
-                if bf_result:
-                    return self.reject("Local Bad From (%s)"
-                                       % bf_result.group(0), art, post)
-            # Local Bad Groups
-            if 'local_bad_groups' in self.bad_regexs:
-                reg = self.bad_regexs['local_bad_groups']
-                bg_result = reg.search(art[Newsgroups])
-                if bg_result:
-                    return self.reject("Local Bad Group (%s)"
-                                       % bg_result.group(0), art, post)
+        # The following checks are for locally posted articles
 
-            # Local Bad Body
-            if 'local_bad_body' in self.bad_regexs:
-                reg = self.bad_regexs['local_bad_body']
-                bb_result = reg.search(art[__BODY__])
-                if bb_result:
-                    return self.reject("Local Bad Body (%s)"
-                                       % bb_result.group(0), art, post)
+        # Groups where crossposting is not allowed
+        if (local and self.groups['count'] > 1 and
+                'local_bad_cp_groups' in self.bad_regexs):
+            bcg = self.bad_regexs['local_bad_cp_groups'].search(art[Newsgroups])
+            if bcg:
+                return self.reject("Local Bad Crosspost Group (%s)"
+                                   % bcg.group(0), art, post)
+
+        # Local Bad From
+        if local and 'local_bad_from' in self.bad_regexs:
+            reg = self.bad_regexs['local_bad_from']
+            bf_result = reg.search(art[From])
+            if bf_result:
+                return self.reject("Local Bad From (%s)"
+                                   % bf_result.group(0), art, post)
+        # Local Bad Groups
+        if local and 'local_bad_groups' in self.bad_regexs:
+            reg = self.bad_regexs['local_bad_groups']
+            bg_result = reg.search(art[Newsgroups])
+            if bg_result:
+                return self.reject("Local Bad Group (%s)"
+                                   % bg_result.group(0), art, post)
+
+        # Local Bad Body
+        if local and 'local_bad_body' in self.bad_regexs:
+            reg = self.bad_regexs['local_bad_body']
+            bb_result = reg.search(art[__BODY__])
+            if bb_result:
+                return self.reject("Local Bad Body (%s)"
+                                   % bb_result.group(0), art, post)
 
         # Misplaced binary check
         if self.groups['bin_allowed_bool']:
