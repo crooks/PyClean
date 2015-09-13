@@ -1,0 +1,16 @@
+# This file needs to be copied to /usr/local/news/pyclean/etc/log_rules.
+#
+# It provides a cross-reference between the INFO header added by Pyclean and
+# the file the message should be logged to.  If no matching rule is found, the
+# rejected message will not be logged.
+
+EMP PHN:        emp.phn
+EMP PHL:        emp.phl
+EMP FSL:        emp.fsl
+EMP Body:       emp.body
+EMP IHN:        emp.ihn
+Bad:            bad_files
+Local Bad:      local_bad_files
+Binary:         binary
+HTML:           html
+Crosspost:      crosspost

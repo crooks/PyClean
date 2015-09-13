@@ -48,41 +48,41 @@
 #max_crosspost = 10
 
 [paths]
-etc = /home/crooks/pyclean/etc
-logart = /home/crooks/pyclean/articles
-log = /home/crooks/pyclean/log
-lib = /home/crooks/pyclean/lib
+#etc = ~news/pyclean/etc
+#logart = ~news/pyclean/articles
+#log = ~news/pyclean/log
+#lib = ~news/pyclean/lib
 
 [hostnames]
-path_hostname = true
+# If True, Pyclean will try to extract the injection-host from the Path header
+# but ONLY, if all other preferred sources of info fail.
+#path_hostname = true
 
 [emp]
-ph_coarse = true
-phl_threshold = 20
-body_threshold = 5
-ihn_ceiling = 15
-fsl_maxentries = 5000
-ihn_timed_trim = 7200
-phn_maxentries = 5000
-body_maxentries = 5000
-phl_maxentries = 5000
-phn_timed_trim = 1800
-ihn_maxentries = 1000
-body_fuzzy = yes
-body_timed_trim = 3600
-phl_timed_trim = 3600
-fsl_threshold = 20
-body_ceiling = 85
-phn_threshold = 150
-phl_ceiling = 80
-fsl_timed_trim = 3600
-fsl_ceiling = 40
-phn_ceiling = 200
-ihn_threshold = 10
+#ph_coarse = true
+#phl_threshold = 20
+#body_threshold = 5
+#ihn_ceiling = 15
+#fsl_maxentries = 5000
+#ihn_timed_trim = 7200
+#phn_maxentries = 5000
+#body_maxentries = 5000
+#phl_maxentries = 5000
+#phn_timed_trim = 1800
+#ihn_maxentries = 1000
+#body_fuzzy = yes
+#body_timed_trim = 3600
+#phl_timed_trim = 3600
+#fsl_threshold = 20
+#body_ceiling = 85
+#phn_threshold = 150
+#phl_ceiling = 80
+#fsl_timed_trim = 3600
+#fsl_ceiling = 40
+#phn_ceiling = 200
+#ihn_threshold = 10
 
 [filters]
-reject_html = true
-newsguy = true
-reject_multipart = false
-
-# vim: tabstop=4 expandtab shiftwidth=4 autoindent syntax=config
+#reject_html = true
+#newsguy = true
+#reject_multipart = false

@@ -1,0 +1,11 @@
+# /usr/local/news/pyclean/local_hosts
+#
+# This file is a list of Injection-Hosts the News operator has personal
+# control and responsibility for.  When matches occur, posts will be compared
+# against local_* files.
+#
+# The following two are examples that match my injecting hosts.  Please replace
+# them with your own.
+
+/mail2news\.mixmin\/net/        20201231
+/news\.mixmin\.net/             20201231
