@@ -1,25 +1,6 @@
 # vim: tabstop=4 expandtab shiftwidth=4 autoindent
-##  $Id: filter_innd.py 8955 2010-02-07 20:05:39Z iulius $
-##
-##  This is a sample filter for the Python innd hook.
-##
-##  See the INN Python Filtering and Authentication Hooks documentation
-##  for more information.
-##
-##  You have access to the following methods from the module INN:
-##   - addhist(message-id)
-##   - article(message-id)
-##   - cancel(message-id)
-##   - havehist(message-id)
-##   - hashstring(string)
-##   - head(message-id)
-##   - newsgroup(groupname)
-##   - set_filter_hook(instance)
-##   - syslog(level, message)
 
 import INN
-#from Config import config
-#import timing
 from pyclean.Config import config
 import pyclean.timing
 
@@ -377,28 +358,27 @@ class Filter():
                 post['injection-host'] = isih.group(0)
 
         # posting-host might be obtainable from NNTP-Posting-Host
-        if not 'posting-host' in post and art[NNTP_Posting_Host] is not None:
+        if 'posting-host' not in post and art[NNTP_Posting_Host] is not None:
             post['posting-host'] = str(art[NNTP_Posting_Host])
 
         # If the injection-host wasn't found in Injection-Info, try the X-Trace
         # header.  We only look for a hostname as the first field in X-Trace,
         # otherwise it's regex hell.
-        if not 'injection-host' in post and art[X_Trace] is not None:
+        if 'injection-host' not in post and art[X_Trace] is not None:
             isih = self.regex_hostname.match(art[X_Trace])
             if isih:
                 post['injection-host'] = isih.group(0)
-                #logging.debug('Injection-Host (from XT): %s' % ih)
 
         # Try to extract a hostname from the Path header
         if config.getboolean('hostnames', 'path_hostname'):
             # First, check for a !.POSTED tag, as per RFC5537
-            if not 'injection-host' in post and "!.POSTED" in str(art[Path]):
+            if 'injection-host' not in post and "!.POSTED" in str(art[Path]):
                 postsplit = str(art[Path]).split("!.POSTED", 1)
                 pathhost = postsplit[0].split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
             # Last resort, try the right-most entry in the Path header
-            if not 'injection-host' in post:
+            if 'injection-host' not in post:
                 subhost = re.sub(self.regex_pathhost, '', art[Path])
                 pathhost = subhost.split("!")[-1]
                 if pathhost:
@@ -416,7 +396,6 @@ class Filter():
 
         # Ascertain if the posting-host is meaningful
         if 'posting-host' in post:
-            #logging.debug('Posting-Host: %s' % ph)
             isbad_ph = self.groups.regex.bad_ph.search(post['posting-host'])
             if isbad_ph:
                 post['bad-posting-host'] = isbad_ph.group(0)
@@ -435,19 +414,18 @@ class Filter():
                 'local_hosts' in self.bad_regexs and
                 self.bad_regexs['local_hosts'].search(post['injection-host'])):
             local = True
-            self.logart('Local Post', art, post, 'local_post')
 
-        ## --- Everything below is accept / reject code ---
+        # --- Everything below is accept / reject code ---
 
         # Reject any messages that don't have a Message-ID
-        if not Message_ID in art:
+        if Message_ID not in art:
             logging.warn("Wot no Message-ID!  Rejecting message because the "
                          "implications of accepting it are unpredictable.")
             return self.reject("No Message-ID header", art, post)
         # We use Message-ID strings so much, it's useful to have a shortcut.
         mid = str(art[Message_ID])
 
-        #TODO Control message handling still needs to be written
+        # Control message handling
         if art[Control] is not None:
             ctrltype = str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
@@ -497,7 +475,7 @@ class Filter():
 
         # Reject these posting-hosts
         if ('posting-host' in post and
-                not 'bad_posting-host' in post and
+                'bad_posting-host' not in post and
                 'bad_posthost' in self.bad_regexs):
             bph = self.bad_regexs['bad_posthost'].search(post['posting-host'])
             if bph:
@@ -537,10 +515,10 @@ class Filter():
         if ('injection-host' in post and
                 post['injection-host'] == 'sewer.dizum.com' and
                 'bad_groups_dizum' in self.bad_regexs):
-            bgd_result = self.bad_regexs['bad_groups_dizum'].search(art[Newsgroups])
-            if bgd_result:
+            bgd = self.bad_regexs['bad_groups_dizum'].search(art[Newsgroups])
+            if bgd:
                 return self.reject("Bad Dizum Group (%s)"
-                                   % bgd_result.group(0), art, post)
+                                   % bgd.group(0), art, post)
 
         if 'bad_from' in self.bad_regexs:
             bf_result = self.bad_regexs['bad_from'].search(art[From])
@@ -559,10 +537,10 @@ class Filter():
         # Groups where crossposting is not allowed
         if (local and self.groups['count'] > 1 and
                 'local_bad_cp_groups' in self.bad_regexs):
-            bcg = self.bad_regexs['local_bad_cp_groups'].search(art[Newsgroups])
-            if bcg:
+            b = self.bad_regexs['local_bad_cp_groups'].search(art[Newsgroups])
+            if b:
                 return self.reject("Local Bad Crosspost Group (%s)"
-                                   % bcg.group(0), art, post)
+                                   % b.group(0), art, post)
 
         # Local Bad From
         if local and 'local_bad_from' in self.bad_regexs:
@@ -669,6 +647,9 @@ class Filter():
                 if self.emp_body.add(art[__BODY__]):
                     return self.reject("EMP Body Reject", art, post)
 
+        if local:
+            # All tests passed.  Log the locally posted message.
+            self.logart('Local Post', art, post, 'local_post')
         # The article passed all checks. Return an empty string.
         return ""
 
@@ -774,7 +755,7 @@ class Filter():
         recorded_mod_stamp = self.bad_files[filename]
         if current_mod_stamp <= recorded_mod_stamp:
             logging.info('%s: File not modified so not recompiling',
-                          filename)
+                         filename)
             return False
         # The file has been modified: Recompile the regex
         logging.info('%s: Recompiling Regular Expression.', filename)
@@ -1101,7 +1082,7 @@ Okay, that's the end of our class definition.  What follows is the
 stuff you need to do to get it all working inside innd.
 """
 
-if not 'python_filter' in dir():
+if 'python_filter' not in dir():
     logfmt = config.get('logging', 'format')
     datefmt = config.get('logging', 'datefmt')
     loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
@@ -1122,12 +1103,11 @@ try:
     INN.set_filter_hook(python_filter)
     INN.syslog('n', "pyclean successfully hooked into INN")
 except Exception, errmsg:    # Syntax for Python 2.x.
-#except Exception as errmsg: # Syntax for Python 3.x.
     INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
 
-##  This looks weird, but creating and interning these strings should
-##  let us get faster access to header keys (which innd also interns) by
-##  losing some strcmps under the covers.
+# This looks weird, but creating and interning these strings should let us get
+# faster access to header keys (which innd also interns) by losing some strcmps
+# under the covers.
 Also_Control = intern("Also-Control")
 Approved = intern("Approved")
 Archive = intern("Archive")
