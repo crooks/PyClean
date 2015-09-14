@@ -1,3 +1,16 @@
 PyClean.py - A Usenet spamfilter intended for use with the INN2 server.
 
-PyClean performs a similar role to the original Perl-based Cleanfeed.
+PyClean performs a similar role to the original Perl-based Cleanfeed.  Its core
+functionality can be adjusted through settings in the pyclean.cfg file, while
+other config files control specific filter and logging behaviour.  Examples of
+these files can be found in the pyclean/samples directory.
+
+By default the configuration takes a cautious approach, assuming that
+under-filtering is better than accidental removal of valid posts.  The
+pyclean.log file provides a real-time overview of filter actions so rules can
+be tweaked where required.  In addition, entire articles can be saved to files
+via rules defined in the pyclean/etc/log_rules file.
+
+Please remember to configure the local_hosts file to contain a list of
+injecting-hosts that are under the operator's control.  This file determines
+whether articles are matched against bad_* or local_bad_* rule files.
