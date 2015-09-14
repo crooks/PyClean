@@ -20,9 +20,12 @@ path will be:-
 
 ~news/pyclean/etc
 
-Note: The sample file contains all configuration options and their default
-settings.  Unless you're changing an option, it's probably best to remark out
-the ones you're not changing.
+The sample file contains all configuration options, remarked out and at their
+default settings.  Additional sample files can be found in the same directory.
+They aren't obligatory but you'll probably want them in order to tune Pyclean's
+logging and filtering behaviour.  Unlike the Perl based Cleanfeed, most of
+these files are reloaded automatically without needing a reload of the Python
+filter.
 
 At this point, the following command can be issued to instruct INN to reload
 its configuration:-
@@ -32,4 +35,4 @@ ctlinnd reload filter.python PyClean initial load
 Monitor the pyclean log directory for any errors or warnings.  If something
 goes badly wrong, a traceback file will be created in this directory,
 containing details of the problem.  Please report this to steve@mixmin.net so I
-can resolve the issue.
+can try to resolve the issue.
