@@ -2,10 +2,9 @@
 #
 # vim: tabstop=4 expandtab shiftwidth=4 noautoindent
 #
-# nymserv.py - A Basic Nymserver for delivering messages to a shared mailbox
-# such as alt.anonymous.messages.
+# PyClean - A Usenet spam filter for INN
 #
-# Copyright (C) 2012 Steve Crook <steve@mixmin.net>
+# Copyright (C) 2015 Steve Crook <steve@mixmin.net>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the

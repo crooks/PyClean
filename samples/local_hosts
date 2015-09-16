@@ -4,6 +4,11 @@
 # control and responsibility for.  When matches occur, posts will be compared
 # against local_* files.
 #
+# Entries are formatted as follows:
+# /regex/	yyyymmdd
+# There yyyymmdd is an expiry date for the entry.  This format is common to
+# most of PyClean's configuration files.
+#
 # The following two are examples that match my injecting hosts.  Please replace
 # them with your own.
 

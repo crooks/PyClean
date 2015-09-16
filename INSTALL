@@ -3,7 +3,7 @@ The following command will install the PyClean program:-
 	python setup.py install
 
 This will need to be run by a user with write permissions to the Python
-dist-packages directory. In most cases this will be root.  See the MANIFEST
+dist-packages directory.  In most cases this will be root.  See the MANIFEST.in
 file for a list of the files installed.
 
 Once installed, a symbolic link needs to be created in the INN's bin/filter
@@ -22,7 +22,7 @@ path will be:-
 
 The sample file contains all configuration options, remarked out and at their
 default settings.  Additional sample files can be found in the same directory.
-They aren't obligatory but you'll probably want them in order to tune Pyclean's
+They aren't obligatory but you'll probably want them in order to tune PyClean's
 logging and filtering behaviour.  Unlike the Perl based Cleanfeed, most of
 these files are reloaded automatically without needing a reload of the Python
 filter.
