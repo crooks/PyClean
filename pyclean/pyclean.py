@@ -19,6 +19,7 @@ try:
 except ImportError:
     from email.Utils import parseaddr
 
+# Python 2.4 doesn't have hashlib
 try:
     from hashlib import md5
 except ImportError:
@@ -1174,7 +1175,7 @@ class EMP:
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
         # of EMP collision checking?  Obviously not or I'd use something else.
-        h = hashlib.md5(content).digest()
+        h = md5(content).digest()
         if h in self.table:
             # When the ceiling is reached, stop incrementing the count.
             if self.table[h] < self.stats['ceiling']:
