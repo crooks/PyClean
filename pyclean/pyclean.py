@@ -816,6 +816,7 @@ class Filter:
                 return self.reject("EMP FSL Reject", art, post)
             # Beginning of IHN filter
             if ('injection-host' in post and
+                    'ihn_hosts' in self.bad_regexs and
                     not self.groups['ihn_exclude_bool']):
                 ihn_result = self.bad_regexs['ihn_hosts']. \
                     search(post['injection-host'])
@@ -944,8 +945,8 @@ class Filter:
         self.bad_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
-        now = now()
         bad_items = []
+        n = now()
         f = open(fqfn, 'r')
         for line in f:
             valid = self.regex_bads.match(line)
@@ -954,7 +955,7 @@ class Filter:
                     # Is current time beyond that of the datestamp? If it is,
                     # the entry is considered expired and processing moves to
                     # the next entry.
-                    if now > dateobj(valid.group(2)):
+                    if n > dateobj(valid.group(2)):
                         continue
                 except ValueError:
                     # If the timestamp is invalid, just ignore the entry
@@ -1044,8 +1045,8 @@ class Groups:
 
     def analyze(self, newsgroups):
         grps = ['test', 'bin_allowed', 'emp_exclude', 'ihn_exclude',
-                'html_exclude', 'sex_groups', 'moderated']
-        grp = dict((f, 0) for f in bad_file_list)
+                'html_allowed', 'sex_groups', 'moderated']
+        grp = dict((f, 0) for f in grps)
         
         nglist = str(newsgroups).lower().split(',')
         count = len(nglist)
@@ -1068,9 +1069,9 @@ class Groups:
                 grp['moderated'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
-        for ngelement in self.grp.keys():
+        for ngelement in grp.keys():
             ngbool = '%s_bool' % ngelement
-            grp[ngbool] = self.grp[ngelement] == count
+            grp[ngbool] = grp[ngelement] == count
         grp['groups'] = sorted(nglist)
         grp['count'] = count
         self.grp = grp
