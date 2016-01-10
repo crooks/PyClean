@@ -1,19 +1,198 @@
 # vim: tabstop=4 expandtab shiftwidth=4 autoindent
 
 import INN
-from pyclean.Config import config
-import pyclean.timing
 
 import re
+import os
 import os.path
 import traceback
 import logging
 import logging.handlers
 import shelve
 import sys
-import email.utils
-import hashlib
-from collections import defaultdict
+import datetime
+import ConfigParser
+
+# In Python2.4, utils was called Utils
+try:
+    from email.utils import parseaddr
+except ImportError:
+    from email.Utils import parseaddr
+
+try:
+    from hashlib import md5
+except ImportError:
+    import md5
+
+# First, define some high-level date/time functions
+def now():
+    return datetime.datetime.utcnow()
+    #return datetime.datetime.now()
+
+
+def timestamp(stamp):
+    return stamp.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def dateobj(datestr):
+    """Take a string formated date (yyyymmdd) and return a datetime object."""
+    return datetime.datetime.strptime(datestr, '%Y%m%d')
+
+
+def nowstamp():
+    """A shortcut function to return a textual representation of now."""
+    return timestamp(now())
+
+
+def last_midnight():
+    return now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def next_midnight():
+    """Return a datetime object relating to the next midnight.
+
+    """
+    return last_midnight() + datetime.timedelta(days=1)
+
+
+def future(days=0, hours=0, mins=0, secs=0):
+    return now() + datetime.timedelta(days=days, hours=hours,
+                                      minutes=mins, seconds=secs)
+
+# -----This section is concerned with setting up a default configuration
+
+def makedir(d):
+    """Check if a given directory exists.  If it doesn't, check if the
+    parent exists.  If it does then the new directory will be created.  If
+    not then sensible options are exhausted and the program aborts.
+
+    """
+    if not os.path.isdir(d):
+        parent = os.path.dirname(d)
+        if os.path.isdir(parent):
+            os.mkdir(d, 0700)
+            sys.stdout.write("%s: Directory created.\n" % d)
+        else:
+            msg = "%s: Unable to make directory. Aborting.\n" % d
+            sys.stdout.write(msg)
+            sys.exit(1)
+
+
+def init_config():
+    # Configure the Config Parser.
+    config = ConfigParser.RawConfigParser()
+
+    # Logging
+    config.add_section('logging')
+    config.set('logging', 'level', 'info')
+    config.set('logging',
+            'format', '%(asctime)s %(levelname)s %(message)s')
+    config.set('logging', 'datefmt', '%Y-%m-%d %H:%M:%S')
+    config.set('logging', 'retain', 7)
+    config.set('logging', 'logart_maxlines', 20)
+
+    # Binary
+    config.add_section('binary')
+    config.set('binary', 'lines_allowed', 15)
+    config.set('binary', 'allow_pgp', 'true')
+    config.set('binary', 'reject_suspected', 'false')
+    config.set('binary', 'fasttrack_references', 'true')
+
+    # EMP
+    config.add_section('emp')
+    config.set('emp', 'ph_coarse', 'true')
+    config.set('emp', 'body_threshold', 5)
+    config.set('emp', 'body_ceiling', 85)
+    config.set('emp', 'body_maxentries', 5000)
+    config.set('emp', 'body_timed_trim', 3600)
+    config.set('emp', 'body_fuzzy', 'yes')
+    config.set('emp', 'phn_threshold', 150)
+    config.set('emp', 'phn_ceiling', 200)
+    config.set('emp', 'phn_maxentries', 5000)
+    config.set('emp', 'phn_timed_trim', 1800)
+    config.set('emp', 'phl_threshold', 20)
+    config.set('emp', 'phl_ceiling', 80)
+    config.set('emp', 'phl_maxentries', 5000)
+    config.set('emp', 'phl_timed_trim', 3600)
+    config.set('emp', 'fsl_threshold', 20)
+    config.set('emp', 'fsl_ceiling', 40)
+    config.set('emp', 'fsl_maxentries', 5000)
+    config.set('emp', 'fsl_timed_trim', 3600)
+    config.set('emp', 'ihn_threshold', 10)
+    config.set('emp', 'ihn_ceiling', 15)
+    config.set('emp', 'ihn_maxentries', 1000)
+    config.set('emp', 'ihn_timed_trim', 7200)
+
+    config.add_section('groups')
+    config.set('groups', 'max_crosspost', 10)
+
+    config.add_section('control')
+    config.set('control', 'reject_cancels', 'false')
+    config.set('control', 'reject_redundant', 'true')
+
+    config.add_section('filters')
+    config.set('filters', 'newsguy', 'true')
+    config.set('filters', 'reject_html', 'true')
+    config.set('filters', 'reject_multipart', 'false')
+
+    config.add_section('hostnames')
+    config.set('hostnames', 'path_hostname', 'true')
+
+    # The path section is a bit tricky. First off we try to read a default
+    # config file.  This can define the path to everything, including the
+    # pyclean.cfg config file.  For this reason, all the path entries that
+    # could generate directories need to come after the config files have
+    # been read.
+    config.add_section('paths')
+    # In accordance with Debian standards, we'll look for
+    # /etc/default/pyclean.  This file can define the path for pyclean's
+    # etc, which includes the pyclean.cfg file.  The location of the
+    # default file can be overridden by setting the 'PYCLEAN' environment
+    # variable.
+    if 'PYCLEAN' in os.environ:
+        default = os.environ['PYCLEAN']
+    else:
+        default = os.path.join('/', 'etc', 'default', 'pyclean')
+    if os.path.isfile(default):
+        config.read(default)
+    # By default, all the paths are subdirectories of the homedir.
+    homedir = os.path.expanduser('~')
+    # Define the basedir for pyclean.  By default this will be ~/pyclean
+    basedir = os.path.join(homedir, 'pyclean')
+    # If the default file hasn't specified an etc path, we need to assume a
+    # default.  Usually /usr/local/news/pyclean/etc.
+    if not config.has_option('paths', 'etc'):
+        config.set('paths', 'etc', os.path.join(basedir, 'etc'))
+        # At this point, we know the basedir is going to be required so we
+        # attempt to create it.
+        makedir(basedir)
+    makedir(config.get('paths', 'etc'))
+    # Under all circumstances, we now have an etc path.  Now to check
+    # if the config file exists and if so, read it.
+    configfile = os.path.join(config.get('paths', 'etc'), 'pyclean.cfg')
+    if os.path.isfile(configfile):
+        config.read(configfile)
+
+    if not config.has_option('paths', 'log'):
+        config.set('paths', 'log', os.path.join(basedir, 'log'))
+        # As with the etc section above, we know basedir is required now. No
+        # harm in trying to create it multiple times.
+        makedir(basedir)
+    makedir(config.get('paths', 'log'))
+
+    if not config.has_option('paths', 'logart'):
+        config.set('paths', 'logart', os.path.join(basedir, 'articles'))
+    makedir(config.get('paths', 'logart'))
+
+    if not config.has_option('paths', 'lib'):
+        config.set('paths', 'lib', os.path.join(basedir, 'lib'))
+    makedir(config.get('paths', 'lib'))
+
+    # The following lines can be uncommented in order to write a config
+    # file. This is useful for creating an example file.
+    #with open('example.cfg', 'wb') as configfile:
+    #    config.write(configfile)
+    return config
 
 
 class InndFilter:
@@ -172,7 +351,7 @@ class Binary:
         fn = os.path.join(config.get('paths', 'log'), 'binfeeds')
         f = open(fn, 'w')
         f.write('# Binary feeders report - %s\n\n'
-                % pyclean.timing.nowstamp())
+                % nowstamp())
         for e in self.feedhosts.keys():
             f.write('%s: %s\n' % (e, self.feedhosts[e]))
         f.close()
@@ -317,14 +496,14 @@ class Filter:
         # Initialize timed events
         self.hourly_events(startup=True)
         # Set a datetime object for next midnight
-        self.midnight_trigger = pyclean.timing.next_midnight()
+        self.midnight_trigger = next_midnight()
 
     def filter(self, art):
         # Initialize the posting info dict
         post = {}
 
         # Trigger timed reloads
-        now = pyclean.timing.now()
+        now = now()
         if now > self.hourly_trigger:
             self.hourly_events()
         if now > self.midnight_trigger:
@@ -333,7 +512,7 @@ class Filter:
         # Attempt to split the From address into component parts
         if 'From' in art:
             post['from_name'], \
-                post['from_email'] = email.utils.parseaddr(art['From'])
+                post['from_email'] = parseaddr(art['From'])
 
         if art[Content_Type] is not None:
             ct = self.regex_ct.match(art[Content_Type])
@@ -722,7 +901,7 @@ class Filter:
             else:
                 logging.warn("%s: File not found" % configfile)
         # Reset the next timed trigger.
-        self.hourly_trigger = pyclean.timing.future(hours=1)
+        self.hourly_trigger = future(hours=1)
 
     def midnight_events(self):
         """Events that need to occur at midnight each day.
@@ -736,7 +915,7 @@ class Filter:
         self.emp_phn.reset()
         self.emp_ihn.reset()
         # Set the midnight trigger for next day.
-        self.midnight_trigger = pyclean.timing.next_midnight()
+        self.midnight_trigger = next_midnight()
 
     def regex_file(self, filename):
         """Read a given file and return a regular expression composed of
@@ -765,7 +944,7 @@ class Filter:
         self.bad_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
-        now = pyclean.timing.now()
+        now = now()
         bad_items = []
         f = open(fqfn, 'r')
         for line in f:
@@ -775,7 +954,7 @@ class Filter:
                     # Is current time beyond that of the datestamp? If it is,
                     # the entry is considered expired and processing moves to
                     # the next entry.
-                    if now > pyclean.timing.dateobj(valid.group(2)):
+                    if now > dateobj(valid.group(2)):
                         continue
                 except ValueError:
                     # If the timestamp is invalid, just ignore the entry
@@ -864,33 +1043,37 @@ class Groups:
         return False
 
     def analyze(self, newsgroups):
-        self.grp = defaultdict(lambda: 0)
+        grps = ['test', 'bin_allowed', 'emp_exclude', 'ihn_exclude',
+                'html_exclude', 'sex_groups', 'moderated']
+        grp = dict((f, 0) for f in bad_file_list)
+        
         nglist = str(newsgroups).lower().split(',')
         count = len(nglist)
         for ng in nglist:
             # Strip whitespace from individual Newsgroups
             ng = ng.strip()
             if self.regex.test.search(ng):
-                self.grp['test'] += 1
+                grp['test'] += 1
             if self.regex.bin_allowed.search(ng):
-                self.grp['bin_allowed'] += 1
+                grp['bin_allowed'] += 1
             if self.regex.emp_exclude.search(ng):
-                self.grp['emp_exclude'] += 1
+                grp['emp_exclude'] += 1
             if self.regex.ihn_exclude.search(ng):
-                self.grp['ihn_exclude'] += 1
+                grp['ihn_exclude'] += 1
             if self.regex.html_allowed.search(ng):
-                self.grp['html_allowed'] += 1
+                grp['html_allowed'] += 1
             if self.regex.sex_groups.search(ng):
-                self.grp['sex_groups'] += 1
+                grp['sex_groups'] += 1
             if INN.newsgroup(ng) == 'm':
-                self.grp['moderated'] += 1
+                grp['moderated'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
         for ngelement in self.grp.keys():
             ngbool = '%s_bool' % ngelement
-            self.grp[ngbool] = self.grp[ngelement] == count
-        self.grp['groups'] = sorted(nglist)
-        self.grp['count'] = count
+            grp[ngbool] = self.grp[ngelement] == count
+        grp['groups'] = sorted(nglist)
+        grp['count'] = count
+        self.grp = grp
 
 
 class Regex:
@@ -953,7 +1136,7 @@ class EMP:
         self.fuzzy_notletters = re.compile('[^a-zA-Z]')
         # Initialize some defaults
         self.stats = {'name': name,
-                      'nexttrim': pyclean.timing.future(secs=timedtrim),
+                      'nexttrim': future(secs=timedtrim),
                       'processed': 0,
                       'accepted': 0,
                       'rejected': 0,
@@ -1003,7 +1186,7 @@ class EMP:
         else:
             # See if it's time to perform a trim.  We only care about doing
             # this when a new entry is being made.
-            if pyclean.timing.now() > self.stats['nexttrim']:
+            if now() > self.stats['nexttrim']:
                 self._trim()
             elif len(self.table) > self.stats['maxentries']:
                 logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
@@ -1034,7 +1217,7 @@ class EMP:
         logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s',
                      self.stats)
         self.stats['nexttrim'] = \
-            pyclean.timing.future(secs=self.stats['timedtrim'])
+            future(secs=self.stats['timedtrim'])
 
     def statlog(self):
         """Log details of the EMP hash."""
@@ -1086,6 +1269,7 @@ stuff you need to do to get it all working inside innd.
 
 if 'python_filter' not in dir():
     python_version = sys.version_info
+    config = init_config()
     logfmt = config.get('logging', 'format')
     datefmt = config.get('logging', 'datefmt')
     loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
@@ -1095,8 +1279,7 @@ if 'python_filter' not in dir():
         os.path.join(config.get('paths', 'log'), 'pyclean.log'),
         when='midnight',
         interval=1,
-        backupCount=config.getint('logging', 'retain'),
-        utc=True)
+        backupCount=config.getint('logging', 'retain'))
     logfile.setLevel(loglevels[config.get('logging', 'level')])
     logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
     logging.getLogger().addHandler(logfile)
