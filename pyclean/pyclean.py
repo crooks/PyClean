@@ -504,10 +504,9 @@ class Filter:
         post = {}
 
         # Trigger timed reloads
-        now = now()
-        if now > self.hourly_trigger:
+        if now() > self.hourly_trigger:
             self.hourly_events()
-        if now > self.midnight_trigger:
+        if now() > self.midnight_trigger:
             self.midnight_events()
 
         # Attempt to split the From address into component parts
