@@ -146,7 +146,7 @@ class InndFilter:
                         % (oldmode, newmode, reason))
 
 
-class Binary():
+class Binary:
     """Perform binary content checking of articles.
 
     """
@@ -232,7 +232,7 @@ class Binary():
         return False
 
 
-class Filter():
+class Filter:
     def __init__(self):
         """This runs every time the filter is loaded or reloaded.
         This is a good place to initialize variables and precompile
@@ -261,7 +261,9 @@ class Filter():
                          'bad_cp_groups', 'local_bad_cp_groups']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
-        bad_files = {f: 0 for f in bad_file_list}
+        bad_files = dict((f, 0) for f in bad_file_list)
+        # Python >= 2.7 has dict comprehension but not earlier versions
+        # bad_files = {f: 0 for f in bad_file_list}
         self.bad_files = bad_files
         # A dict of the regexs compiled from the bad_files defined above.
         self.bad_regexs = {}
@@ -849,7 +851,7 @@ class Filter():
         self.emp_ihn.dump()
 
 
-class Groups():
+class Groups:
     def __init__(self):
         self.regex = Regex()
 
@@ -891,7 +893,7 @@ class Groups():
         self.grp['count'] = count
 
 
-class Regex():
+class Regex:
     def __init__(self):
         # Test groups
         test = ['\.test(ing)?(?:$|\.)',
@@ -931,7 +933,7 @@ class Regex():
         return re.compile(textual)
 
 
-class EMP():
+class EMP:
     def __init__(self,
                  threshold=3,
                  ceiling=100,
@@ -1083,6 +1085,7 @@ stuff you need to do to get it all working inside innd.
 """
 
 if 'python_filter' not in dir():
+    python_version = sys.version_info
     logfmt = config.get('logging', 'format')
     datefmt = config.get('logging', 'datefmt')
     loglevels = {'debug': logging.DEBUG, 'info': logging.INFO,
