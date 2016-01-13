@@ -1034,6 +1034,9 @@ class Filter:
 class Groups:
     def __init__(self):
         self.regex = Regex()
+        # List of tests (that will become zeroed dict items).
+        self.grps = ['test', 'bin_allowed', 'emp_exclude', 'ihn_exclude',
+                     'html_allowed', 'sex_groups', 'moderated']
 
     def __getitem__(self, grptest):
         return self.grp[grptest]
@@ -1044,9 +1047,8 @@ class Groups:
         return False
 
     def analyze(self, newsgroups):
-        grps = ['test', 'bin_allowed', 'emp_exclude', 'ihn_exclude',
-                'html_allowed', 'sex_groups', 'moderated']
-        grp = dict((f, 0) for f in grps)
+        # Zero all dict items we'll use in this post
+        grp = dict((f, 0) for f in self.grps)
         
         nglist = str(newsgroups).lower().split(',')
         count = len(nglist)
@@ -1263,6 +1265,8 @@ class EMP:
         self.stats['processed'] = 0
         self.stats['accepted'] = 0
         self.stats['rejected'] = 0
+
+
 """
 Okay, that's the end of our class definition.  What follows is the
 stuff you need to do to get it all working inside innd.
