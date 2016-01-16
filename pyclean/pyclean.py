@@ -23,7 +23,7 @@ except ImportError:
 try:
     from hashlib import md5
 except ImportError:
-    import md5
+    from md5 import md5
 
 # First, define some high-level date/time functions
 def now():
@@ -900,7 +900,8 @@ class Filter:
             if os.path.isfile(configfile):
                 config.read(configfile)
             else:
-                logging.warn("%s: File not found" % configfile)
+                logging.info("%s: File not found. Using defaults settings."
+                             % configfile)
         # Reset the next timed trigger.
         self.hourly_trigger = future(hours=1)
 
