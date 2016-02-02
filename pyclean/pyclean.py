@@ -106,7 +106,7 @@ def init_config():
     config.set('emp', 'body_ceiling', 85)
     config.set('emp', 'body_maxentries', 5000)
     config.set('emp', 'body_timed_trim', 3600)
-    config.set('emp', 'body_fuzzy', 'yes')
+    config.set('emp', 'body_fuzzy', 'true')
     config.set('emp', 'phn_threshold', 150)
     config.set('emp', 'phn_ceiling', 200)
     config.set('emp', 'phn_maxentries', 5000)
