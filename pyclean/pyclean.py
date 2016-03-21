@@ -25,10 +25,11 @@ try:
 except ImportError:
     from md5 import md5
 
+
 # First, define some high-level date/time functions
 def now():
     return datetime.datetime.utcnow()
-    #return datetime.datetime.now()
+    # return datetime.datetime.now()
 
 
 def timestamp(stamp):
@@ -62,6 +63,7 @@ def future(days=0, hours=0, mins=0, secs=0):
 
 # -----This section is concerned with setting up a default configuration
 
+
 def makedir(d):
     """Check if a given directory exists.  If it doesn't, check if the
     parent exists.  If it does then the new directory will be created.  If
@@ -87,7 +89,7 @@ def init_config():
     config.add_section('logging')
     config.set('logging', 'level', 'info')
     config.set('logging',
-            'format', '%(asctime)s %(levelname)s %(message)s')
+               'format', '%(asctime)s %(levelname)s %(message)s')
     config.set('logging', 'datefmt', '%Y-%m-%d %H:%M:%S')
     config.set('logging', 'retain', 7)
     config.set('logging', 'logart_maxlines', 20)
@@ -191,7 +193,7 @@ def init_config():
 
     # The following lines can be uncommented in order to write a config
     # file. This is useful for creating an example file.
-    #with open('example.cfg', 'wb') as configfile:
+    # with open('example.cfg', 'wb') as configfile:
     #    config.write(configfile)
     return config
 
@@ -1050,7 +1052,7 @@ class Groups:
     def analyze(self, newsgroups):
         # Zero all dict items we'll use in this post
         grp = dict((f, 0) for f in self.grps)
-        
+
         nglist = str(newsgroups).lower().split(',')
         count = len(nglist)
         for ng in nglist:
@@ -1098,7 +1100,7 @@ class Regex:
                        '\.lists\.freebsd\.']
         self.bin_allowed = self.regex_compile(bin_allowed)
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
-                        '^mailing\.']
+                        '^mailing\.', '^gnus\.']
         self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
