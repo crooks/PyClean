@@ -654,6 +654,16 @@ class Filter:
                 'comp.os.os2.advocacy' in str(art[Followup_To])):
             return self.reject("OS2 Followup", art, post)
 
+        # Poor snipe is getting the Greg Hall treatment
+        if 'injection-host' in post:
+            if post['injection-host'].startswith(
+                    "snipe.eternal-september.org"):
+                self.logart("Snipe Post", art, post, 'log_snipe')
+            else:
+                if ("sn!pe" in post['from_name'] or
+                        "snipeco" in post['from_email']):
+                    return self.reject("Snipe Forge", art, post)
+
         # Compare headers against regex files
 
         # Reject these posting-hosts
