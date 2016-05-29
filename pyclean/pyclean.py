@@ -2,16 +2,16 @@
 
 import INN
 
-import re
-import os
-import os.path
-import traceback
+import ConfigParser
+import datetime
 import logging
 import logging.handlers
+import os
+import os.path
+import re
 import shelve
 import sys
-import datetime
-import ConfigParser
+import traceback
 
 # In Python2.4, utils was called Utils
 try:
@@ -514,7 +514,7 @@ class Filter:
         # Attempt to split the From address into component parts
         if 'From' in art:
             post['from_name'], \
-                post['from_email'] = parseaddr(art['From'])
+                post['from_email'] = self.addressParse(art['From'])
 
         if art[Content_Type] is not None:
             ct = self.regex_ct.match(art[Content_Type])
@@ -836,6 +836,10 @@ class Filter:
             self.logart('Local Post', art, post, 'local_post')
         # The article passed all checks. Return an empty string.
         return ""
+
+    def addressParse(self, addr):
+        name, email = parseaddr(addr)
+        return name.lower(), email.lower()
 
     def reject(self, reason, art, post):
         for logrule in self.log_rules.keys():
