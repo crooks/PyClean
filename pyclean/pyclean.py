@@ -11,6 +11,7 @@ import os.path
 import re
 import shelve
 import sys
+import time
 import traceback
 
 # In Python2.4, utils was called Utils
@@ -38,7 +39,9 @@ def timestamp(stamp):
 
 def dateobj(datestr):
     """Take a string formated date (yyyymmdd) and return a datetime object."""
-    return datetime.datetime.strptime(datestr, '%Y%m%d')
+    # Python 2.4 compatibility
+    return datetime.datetime(*(time.strptime(datestr, '%Y%m%d')[0:6]))
+    #return datetime.datetime.strptime(datestr, '%Y%m%d')
 
 
 def nowstamp():
