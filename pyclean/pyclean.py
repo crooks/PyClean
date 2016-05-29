@@ -41,7 +41,7 @@ def dateobj(datestr):
     """Take a string formated date (yyyymmdd) and return a datetime object."""
     # Python 2.4 compatibility
     return datetime.datetime(*(time.strptime(datestr, '%Y%m%d')[0:6]))
-    #return datetime.datetime.strptime(datestr, '%Y%m%d')
+    # return datetime.datetime.strptime(datestr, '%Y%m%d')
 
 
 def nowstamp():
@@ -661,7 +661,8 @@ class Filter:
         if 'injection-host' in post:
             if post['injection-host'].startswith(
                     "snipe.eternal-september.org"):
-                self.logart("Snipe Post", art, post, 'log_snipe')
+                pass
+                # self.logart("Snipe Post", art, post, 'log_snipe')
             else:
                 if ("sn!pe" in post['from_name'] or
                         "snipeco" in post['from_email']):
