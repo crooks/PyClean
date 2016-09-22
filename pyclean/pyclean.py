@@ -443,7 +443,8 @@ class Filter:
                          'ihn_hosts', 'local_hosts', 'local_bad_from',
                          'local_bad_groups', 'local_bad_body', 'log_from',
                          'bad_groups_dizum', 'bad_crosspost_host',
-                         'bad_cp_groups', 'local_bad_cp_groups']
+                         'bad_cp_groups', 'local_bad_cp_groups',
+                         'good_posthost']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
         bad_files = dict((f, 0) for f in bad_file_list)
@@ -670,8 +671,16 @@ class Filter:
 
         # Compare headers against regex files
 
+        # Check if posting-host is whitelisted
+        gph = False
+        if('posting-host' in post and 'good_posthost' in self.bad_regexs):
+            gph = self.bad_regexs['good_posthost'].search(post['posting-host'])
+            if gph:
+                logging.debug("Whitelisted posting host: %s",
+                              post['posting-host'])
+
         # Reject these posting-hosts
-        if ('posting-host' in post and
+        if ('posting-host' in post and not gph and
                 'bad_posting-host' not in post and
                 'bad_posthost' in self.bad_regexs):
             bph = self.bad_regexs['bad_posthost'].search(post['posting-host'])
@@ -680,7 +689,7 @@ class Filter:
                                    % bph.group(0), art, post)
 
         # Test posting-hosts that are not allowed to crosspost
-        if ('posting-host' in post and
+        if ('posting-host' in post and not gph and
                 self.groups['count'] > 1 and
                 'bad_crosspost_host' in self.bad_regexs):
             ph = post['posting-host']
@@ -690,7 +699,7 @@ class Filter:
                                    % bph.group(0), art, post)
 
         # Groups where crossposting is not allowed
-        if (self.groups['count'] > 1 and
+        if (self.groups['count'] > 1 and not gph and
                 'bad_cp_groups' in self.bad_regexs):
             bcg = self.bad_regexs['bad_cp_groups'].search(art[Newsgroups])
             if bcg:
@@ -703,7 +712,7 @@ class Filter:
                 self.logart(lf_result.group(0), art, post, 'log_from',
                             trim=False)
 
-        if 'bad_groups' in self.bad_regexs:
+        if 'bad_groups' in self.bad_regexs and not gph:
             bg_result = self.bad_regexs['bad_groups'].search(art[Newsgroups])
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
@@ -717,13 +726,13 @@ class Filter:
                 return self.reject("Bad Dizum Group (%s)"
                                    % bgd.group(0), art, post)
 
-        if 'bad_from' in self.bad_regexs:
+        if 'bad_from' in self.bad_regexs and not gph:
             bf_result = self.bad_regexs['bad_from'].search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
                                    art, post)
 
-        if 'bad_body' in self.bad_regexs:
+        if 'bad_body' in self.bad_regexs and not gph:
             bb_result = self.bad_regexs['bad_body'].search(art[__BODY__])
             if bb_result:
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
@@ -732,7 +741,7 @@ class Filter:
         # The following checks are for locally posted articles
 
         # Groups where crossposting is not allowed
-        if (local and self.groups['count'] > 1 and
+        if (local and not gph and self.groups['count'] > 1 and
                 'local_bad_cp_groups' in self.bad_regexs):
             b = self.bad_regexs['local_bad_cp_groups'].search(art[Newsgroups])
             if b:
@@ -740,14 +749,14 @@ class Filter:
                                    % b.group(0), art, post)
 
         # Local Bad From
-        if local and 'local_bad_from' in self.bad_regexs:
+        if local and not gph and 'local_bad_from' in self.bad_regexs:
             reg = self.bad_regexs['local_bad_from']
             bf_result = reg.search(art[From])
             if bf_result:
                 return self.reject("Local Bad From (%s)"
                                    % bf_result.group(0), art, post)
         # Local Bad Groups
-        if local and 'local_bad_groups' in self.bad_regexs:
+        if local and not gph and 'local_bad_groups' in self.bad_regexs:
             reg = self.bad_regexs['local_bad_groups']
             bg_result = reg.search(art[Newsgroups])
             if bg_result:
@@ -755,7 +764,7 @@ class Filter:
                                    % bg_result.group(0), art, post)
 
         # Local Bad Body
-        if local and 'local_bad_body' in self.bad_regexs:
+        if local and not gph and 'local_bad_body' in self.bad_regexs:
             reg = self.bad_regexs['local_bad_body']
             bb_result = reg.search(art[__BODY__])
             if bb_result:
