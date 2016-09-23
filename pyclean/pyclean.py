@@ -676,8 +676,9 @@ class Filter:
         if('posting-host' in post and 'good_posthost' in self.bad_regexs):
             gph = self.bad_regexs['good_posthost'].search(post['posting-host'])
             if gph:
-                logging.debug("Whitelisted posting host: %s",
-                              post['posting-host'])
+                logging.info("Whitelisted posting. host=%s, msgid=%s",
+                             post['posting-host'],
+                             art[Message_ID])
 
         # Reject these posting-hosts
         if ('posting-host' in post and not gph and
@@ -800,7 +801,7 @@ class Filter:
                 if config.getboolean('filters', 'reject_multipart'):
                     return self.reject("MIME Multpart", art, post)
                 else:
-                    logging.info('Multipart: %s' % mid)
+                    logging.debug('Multipart: %s' % mid)
 
         # Start of EMP checks
         if (not self.groups['emp_exclude_bool'] and
@@ -956,7 +957,7 @@ class Filter:
         logging.debug('Testing %s regex condition', filename)
         fqfn = os.path.join(config.get('paths', 'etc'), filename)
         if not os.path.isfile(fqfn):
-            logging.debug('%s: Bad file not found' % filename)
+            logging.info('%s: Regex file not found' % filename)
             if filename in self.bad_regexs:
                 # The file has been deleted so delete the regex.
                 self.bad_regexs.pop(filename, None)
