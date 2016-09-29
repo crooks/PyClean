@@ -439,12 +439,23 @@ class Filter:
         # A dictionary of files containing regexs that need to be reloaded and
         # compiled if the timestamp on them changes.  The dict content is the
         # timestamp (initially zeroed).
-        bad_file_list = ['bad_from', 'bad_groups', 'bad_posthost', 'bad_body',
-                         'ihn_hosts', 'local_hosts', 'local_bad_from',
-                         'local_bad_groups', 'local_bad_body', 'log_from',
-                         'bad_groups_dizum', 'bad_crosspost_host',
-                         'bad_cp_groups', 'local_bad_cp_groups',
-                         'good_posthost']
+        bad_file_list = [
+            'bad_body',
+            'bad_cp_groups',
+            'bad_crosspost_host',
+            'bad_from',
+            'bad_groups',
+            'bad_groups_dizum',
+            'bad_posthost',
+            'bad_subject',
+            'good_posthost'
+            'ihn_hosts',
+            'local_bad_body',
+            'local_bad_cp_groups',
+            'local_bad_from',
+            'local_bad_groups',
+            'local_hosts',
+            'log_from']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
         bad_files = dict((f, 0) for f in bad_file_list)
@@ -589,6 +600,12 @@ class Filter:
                 logging.debug('Bad posting host: %s',
                               post['bad-posting-host'])
 
+        # Dizum deserves a scalar all to itself!
+        dizum = False
+        if ('injection-host' in post and
+                post['injection-host'] == 'sewer.dizum.com'):
+            dizum = True
+
         # The host that fed us this article is first in the Path header.
         post['feed-host'] = str(art[Path]).split('!', 1)[0]
 
@@ -719,9 +736,7 @@ class Filter:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
                                    art, post)
 
-        if ('injection-host' in post and
-                post['injection-host'] == 'sewer.dizum.com' and
-                'bad_groups_dizum' in self.bad_regexs):
+        if dizum and 'bad_groups_dizum' in self.bad_regexs:
             bgd = self.bad_regexs['bad_groups_dizum'].search(art[Newsgroups])
             if bgd:
                 return self.reject("Bad Dizum Group (%s)"
@@ -731,6 +746,13 @@ class Filter:
             bf_result = self.bad_regexs['bad_from'].search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
+                                   art, post)
+
+        # Bad subject checking (Currently only on Dizum posts)
+        if dizum and 'bad_subject' in self.bad_regexs and not gph:
+            bs_result = self.bad_regexs['bad_subject'].search(art[Subject])
+            if bs_result:
+                return self.reject("Bad Subject (%s)" % bs_result.group(0),
                                    art, post)
 
         if 'bad_body' in self.bad_regexs and not gph:
@@ -889,9 +911,16 @@ class Filter:
             f.write(art[__BODY__])
         else:
             maxlines = config.get('logging', 'logart_maxlines')
-            for line in str(art[__BODY__]).split('\n', maxlines)[:-1]:
+            loglines = 0
+            for line in str(art[__BODY__]).split('\n', 1000)[:-1]:
+                # Ignore quoted lines
+                if line.startswith(">"):
+                    continue
                 f.write(line + "\n")
-            f.write('[snip]')
+                loglines += 1
+                if loglines >= maxlines:
+                    f.write('[snip]')
+                    break
         f.write('\n\n')
         f.close
 
