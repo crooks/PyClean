@@ -433,13 +433,13 @@ class Filter:
         # Posting Host and Posting Account
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
-        # Match lines in bad_files formated /regex/ timestamp(YYYYMMDD)
-        self.regex_bads = re.compile('/(.+)/[ \t]+(\d{8})')
+        # Match lines in regex_files formated /regex/ timestamp(YYYYMMDD)
+        self.regex_fmt = re.compile('/(.+)/[ \t]+(\d{8})')
 
         # A dictionary of files containing regexs that need to be reloaded and
         # compiled if the timestamp on them changes.  The dict content is the
         # timestamp (initially zeroed).
-        bad_file_list = [
+        regex_file_list = [
             'bad_body',
             'bad_cp_groups',
             'bad_crosspost_host',
@@ -458,11 +458,11 @@ class Filter:
             'log_from']
         # Each bad_file key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
-        bad_files = dict((f, 0) for f in bad_file_list)
+        regex_files = dict((f, 0) for f in regex_file_list)
         # Python >= 2.7 has dict comprehension but not earlier versions
-        # bad_files = {f: 0 for f in bad_file_list}
-        self.bad_files = bad_files
-        # A dict of the regexs compiled from the bad_files defined above.
+        # regex_files = {f: 0 for f in regex_file_list}
+        self.regex_files = regex_files
+        # A dict of the regexs compiled from the regex_files defined above.
         self.bad_regexs = {}
 
         # Hostname - Not a 100% perfect regex but probably good enough.
@@ -947,7 +947,7 @@ class Filter:
         logging.debug('Reloading Injection-Host substrings')
         self.ihsubs = self.file2list('ih_substrings')
         # Set up Regular Expressions
-        for fn in self.bad_files.keys():
+        for fn in self.regex_files.keys():
             new_regex = self.regex_file(fn)
             if new_regex:
                 self.bad_regexs[fn] = new_regex
@@ -994,7 +994,7 @@ class Filter:
                 self.bad_file[filename] = 0
             return False
         current_mod_stamp = os.path.getmtime(fqfn)
-        recorded_mod_stamp = self.bad_files[filename]
+        recorded_mod_stamp = self.regex_files[filename]
         if current_mod_stamp <= recorded_mod_stamp:
             logging.info('%s: File not modified so not recompiling',
                          filename)
@@ -1002,14 +1002,14 @@ class Filter:
         # The file has been modified: Recompile the regex
         logging.info('%s: Recompiling Regular Expression.', filename)
         # Reset the file's modstamp
-        self.bad_files[filename] = current_mod_stamp
+        self.regex_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
         bad_items = []
         n = now()
         f = open(fqfn, 'r')
         for line in f:
-            valid = self.regex_bads.match(line)
+            valid = self.regex_fmt.match(line)
             if valid:
                 try:
                     # Is current time beyond that of the datestamp? If it is,
