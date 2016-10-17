@@ -456,14 +456,14 @@ class Filter:
             'local_bad_groups',
             'local_hosts',
             'log_from']
-        # Each bad_file key contains a timestamp of last-modified time.
+        # Each regex_files key contains a timestamp of last-modified time.
         # Setting all keys to zero ensures they are processed on first run.
         regex_files = dict((f, 0) for f in regex_file_list)
         # Python >= 2.7 has dict comprehension but not earlier versions
         # regex_files = {f: 0 for f in regex_file_list}
         self.regex_files = regex_files
         # A dict of the regexs compiled from the regex_files defined above.
-        self.bad_regexs = {}
+        self.etc_re = {}
 
         # Hostname - Not a 100% perfect regex but probably good enough.
         self.regex_hostname = re.compile('([a-zA-Z0-9]|[a-zA-Z0-9]'
@@ -615,8 +615,8 @@ class Filter:
         # Is the source of the post considered local?
         local = False
         if ('injection-host' in post and
-                'local_hosts' in self.bad_regexs and
-                self.bad_regexs['local_hosts'].search(post['injection-host'])):
+                'local_hosts' in self.etc_re and
+                self.etc_re['local_hosts'].search(post['injection-host'])):
             local = True
 
         # --- Everything below is accept / reject code ---
@@ -690,8 +690,8 @@ class Filter:
 
         # Check if posting-host is whitelisted
         gph = False
-        if('posting-host' in post and 'good_posthost' in self.bad_regexs):
-            gph = self.bad_regexs['good_posthost'].search(post['posting-host'])
+        if('posting-host' in post and 'good_posthost' in self.etc_re):
+            gph = self.etc_re['good_posthost'].search(post['posting-host'])
             if gph:
                 logging.info("Whitelisted posting. host=%s, msgid=%s",
                              post['posting-host'],
@@ -700,8 +700,8 @@ class Filter:
         # Reject these posting-hosts
         if ('posting-host' in post and not gph and
                 'bad_posting-host' not in post and
-                'bad_posthost' in self.bad_regexs):
-            bph = self.bad_regexs['bad_posthost'].search(post['posting-host'])
+                'bad_posthost' in self.etc_re):
+            bph = self.etc_re['bad_posthost'].search(post['posting-host'])
             if bph:
                 return self.reject("Bad Posting-Host (%s)"
                                    % bph.group(0), art, post)
@@ -709,54 +709,54 @@ class Filter:
         # Test posting-hosts that are not allowed to crosspost
         if ('posting-host' in post and not gph and
                 self.groups['count'] > 1 and
-                'bad_crosspost_host' in self.bad_regexs):
+                'bad_crosspost_host' in self.etc_re):
             ph = post['posting-host']
-            bph = self.bad_regexs['bad_crosspost_host'].search(ph)
+            bph = self.etc_re['bad_crosspost_host'].search(ph)
             if bph:
                 return self.reject("Bad Crosspost Host (%s)"
                                    % bph.group(0), art, post)
 
         # Groups where crossposting is not allowed
         if (self.groups['count'] > 1 and not gph and
-                'bad_cp_groups' in self.bad_regexs):
-            bcg = self.bad_regexs['bad_cp_groups'].search(art[Newsgroups])
+                'bad_cp_groups' in self.etc_re):
+            bcg = self.etc_re['bad_cp_groups'].search(art[Newsgroups])
             if bcg:
                 return self.reject("Bad Crosspost Group (%s)"
                                    % bcg.group(0), art, post)
 
-        if 'log_from' in self.bad_regexs:
-            lf_result = self.bad_regexs['log_from'].search(art[From])
+        if 'log_from' in self.etc_re:
+            lf_result = self.etc_re['log_from'].search(art[From])
             if lf_result:
                 self.logart(lf_result.group(0), art, post, 'log_from',
                             trim=False)
 
-        if 'bad_groups' in self.bad_regexs and not gph:
-            bg_result = self.bad_regexs['bad_groups'].search(art[Newsgroups])
+        if 'bad_groups' in self.etc_re and not gph:
+            bg_result = self.etc_re['bad_groups'].search(art[Newsgroups])
             if bg_result:
                 return self.reject("Bad Group (%s)" % bg_result.group(0),
                                    art, post)
 
-        if dizum and 'bad_groups_dizum' in self.bad_regexs:
-            bgd = self.bad_regexs['bad_groups_dizum'].search(art[Newsgroups])
+        if dizum and 'bad_groups_dizum' in self.etc_re:
+            bgd = self.etc_re['bad_groups_dizum'].search(art[Newsgroups])
             if bgd:
                 return self.reject("Bad Dizum Group (%s)"
                                    % bgd.group(0), art, post)
 
-        if 'bad_from' in self.bad_regexs and not gph:
-            bf_result = self.bad_regexs['bad_from'].search(art[From])
+        if 'bad_from' in self.etc_re and not gph:
+            bf_result = self.etc_re['bad_from'].search(art[From])
             if bf_result:
                 return self.reject("Bad From (%s)" % bf_result.group(0),
                                    art, post)
 
         # Bad subject checking (Currently only on Dizum posts)
-        if dizum and 'bad_subject' in self.bad_regexs and not gph:
-            bs_result = self.bad_regexs['bad_subject'].search(art[Subject])
+        if dizum and 'bad_subject' in self.etc_re and not gph:
+            bs_result = self.etc_re['bad_subject'].search(art[Subject])
             if bs_result:
                 return self.reject("Bad Subject (%s)" % bs_result.group(0),
                                    art, post)
 
-        if 'bad_body' in self.bad_regexs and not gph:
-            bb_result = self.bad_regexs['bad_body'].search(art[__BODY__])
+        if 'bad_body' in self.etc_re and not gph:
+            bb_result = self.etc_re['bad_body'].search(art[__BODY__])
             if bb_result:
                 return self.reject("Bad Body (%s)" % bb_result.group(0),
                                    art, post)
@@ -765,30 +765,30 @@ class Filter:
 
         # Groups where crossposting is not allowed
         if (local and not gph and self.groups['count'] > 1 and
-                'local_bad_cp_groups' in self.bad_regexs):
-            b = self.bad_regexs['local_bad_cp_groups'].search(art[Newsgroups])
+                'local_bad_cp_groups' in self.etc_re):
+            b = self.etc_re['local_bad_cp_groups'].search(art[Newsgroups])
             if b:
                 return self.reject("Local Bad Crosspost Group (%s)"
                                    % b.group(0), art, post)
 
         # Local Bad From
-        if local and not gph and 'local_bad_from' in self.bad_regexs:
-            reg = self.bad_regexs['local_bad_from']
+        if local and not gph and 'local_bad_from' in self.etc_re:
+            reg = self.etc_re['local_bad_from']
             bf_result = reg.search(art[From])
             if bf_result:
                 return self.reject("Local Bad From (%s)"
                                    % bf_result.group(0), art, post)
         # Local Bad Groups
-        if local and not gph and 'local_bad_groups' in self.bad_regexs:
-            reg = self.bad_regexs['local_bad_groups']
+        if local and not gph and 'local_bad_groups' in self.etc_re:
+            reg = self.etc_re['local_bad_groups']
             bg_result = reg.search(art[Newsgroups])
             if bg_result:
                 return self.reject("Local Bad Group (%s)"
                                    % bg_result.group(0), art, post)
 
         # Local Bad Body
-        if local and not gph and 'local_bad_body' in self.bad_regexs:
-            reg = self.bad_regexs['local_bad_body']
+        if local and not gph and 'local_bad_body' in self.etc_re:
+            reg = self.etc_re['local_bad_body']
             bb_result = reg.search(art[__BODY__])
             if bb_result:
                 return self.reject("Local Bad Body (%s)"
@@ -864,9 +864,9 @@ class Filter:
                 return self.reject("EMP FSL Reject", art, post)
             # Beginning of IHN filter
             if ('injection-host' in post and
-                    'ihn_hosts' in self.bad_regexs and
+                    'ihn_hosts' in self.etc_re and
                     not self.groups['ihn_exclude_bool']):
-                ihn_result = self.bad_regexs['ihn_hosts']. \
+                ihn_result = self.etc_re['ihn_hosts']. \
                     search(post['injection-host'])
                 if (ihn_result and
                         self.emp_ihn.add(post['injection-host'] + ngs)):
@@ -950,7 +950,7 @@ class Filter:
         for fn in self.regex_files.keys():
             new_regex = self.regex_file(fn)
             if new_regex:
-                self.bad_regexs[fn] = new_regex
+                self.etc_re[fn] = new_regex
         if not startup:
             # Re-read the config file.
             configfile = os.path.join(config.get('paths', 'etc'),
@@ -987,11 +987,11 @@ class Filter:
         fqfn = os.path.join(config.get('paths', 'etc'), filename)
         if not os.path.isfile(fqfn):
             logging.info('%s: Regex file not found' % filename)
-            if filename in self.bad_regexs:
+            if filename in self.etc_re:
                 # The file has been deleted so delete the regex.
-                self.bad_regexs.pop(filename, None)
+                self.etc_re.pop(filename, None)
                 # Reset the last_modified date to zero
-                self.bad_file[filename] = 0
+                self.regex_files[filename] = 0
             return False
         current_mod_stamp = os.path.getmtime(fqfn)
         recorded_mod_stamp = self.regex_files[filename]
