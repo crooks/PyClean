@@ -131,6 +131,7 @@ def init_config():
 
     config.add_section('groups')
     config.set('groups', 'max_crosspost', 10)
+    config.set('groups', 'max_low_crosspost', 3)
 
     config.add_section('control')
     config.set('control', 'reject_cancels', 'false')
@@ -649,6 +650,10 @@ class Filter:
         # Max-crosspost check
         if self.groups['count'] > config.get('groups', 'max_crosspost'):
             return self.reject("Crosspost Limit Exceeded", art, post)
+        # Max low crosspost check
+        if self.groups['count'] > config.get('groups', 'max_low_crosspost'):
+            if self.groups['lowcp'] > 0:
+                return self.reject("Crosspost Low Limit Exceeded", art, post)
 
         # Lines check
         if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
@@ -741,6 +746,11 @@ class Filter:
             if bgd:
                 return self.reject("Bad Dizum Group (%s)"
                                    % bgd.group(0), art, post)
+
+        # AUK bad crossposts
+        if self.groups['kooks'] > 0:
+            if 'alt.free.newsservers' in self.groups['groups']:
+                return self.reject("AUK Bad Crosspost", art, post)
 
         if 'bad_from' in self.etc_re and not gph:
             bf_result = self.etc_re['bad_from'].search(art[From])
@@ -1095,8 +1105,17 @@ class Groups:
     def __init__(self):
         self.regex = Regex()
         # List of tests (that will become zeroed dict items).
-        self.grps = ['test', 'bin_allowed', 'emp_exclude', 'ihn_exclude',
-                     'html_allowed', 'sex_groups', 'moderated']
+        self.grps = [
+            'bin_allowed',
+            'emp_exclude',
+            'html_allowed',
+            'ihn_exclude',
+            'kooks',
+            'lowcp',
+            'moderated',
+            'sex_groups',
+            'test'
+            ]
 
     def __getitem__(self, grptest):
         return self.grp[grptest]
@@ -1109,12 +1128,13 @@ class Groups:
     def analyze(self, newsgroups):
         # Zero all dict items we'll use in this post
         grp = dict((f, 0) for f in self.grps)
-
-        nglist = str(newsgroups).lower().split(',')
-        count = len(nglist)
-        for ng in nglist:
+        # This will become a list of newsgroups
+        nglist = []
+        for ng in str(newsgroups).lower().split(','):
             # Strip whitespace from individual Newsgroups
             ng = ng.strip()
+            # Populate a list of newsgroups after stripping spaces
+            nglist.append(ng)
             if self.regex.test.search(ng):
                 grp['test'] += 1
             if self.regex.bin_allowed.search(ng):
@@ -1125,12 +1145,17 @@ class Groups:
                 grp['ihn_exclude'] += 1
             if self.regex.html_allowed.search(ng):
                 grp['html_allowed'] += 1
+            if self.regex.kooks.search(ng):
+                grp['kooks'] += 1
+            if self.regex.lowcp.search(ng):
+                grp['lowcp'] += 1
             if self.regex.sex_groups.search(ng):
                 grp['sex_groups'] += 1
             if INN.newsgroup(ng) == 'm':
                 grp['moderated'] += 1
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
+        count = len(nglist)
         for ngelement in grp.keys():
             ngbool = '%s_bool' % ngelement
             grp[ngbool] = grp[ngelement] == count
@@ -1173,6 +1198,15 @@ class Regex:
         # Sex groups
         sex_groups = ['^alt\.sex']
         self.sex_groups = self.regex_compile(sex_groups)
+        # Kook groups
+        kooks = ['^alt\.usenet\.kooks',
+                 '^alt\.checkmate',
+                 '^alt\.fan\.cyberchicken',
+                 '^alt\.fan\.karl-malden\.nose']
+        self.kooks = self.regex_compile(kooks)
+        # Low cross post groups
+        lowcp = ['^alt\.free\.newsservers']
+        self.lowcp = self.regex_compile(lowcp)
 
     def regex_compile(self, regexlist):
         textual = '|'.join(regexlist).replace('||', '|')
