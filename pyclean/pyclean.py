@@ -449,7 +449,7 @@ class Filter:
             'bad_groups_dizum',
             'bad_posthost',
             'bad_subject',
-            'good_posthost'
+            'good_posthost',
             'ihn_hosts',
             'local_bad_body',
             'local_bad_cp_groups',
