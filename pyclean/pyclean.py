@@ -611,7 +611,7 @@ class Filter:
         post['feed-host'] = str(art[Path]).split('!', 1)[0]
 
         # Analyze the Newsgroups header
-        self.groups.analyze(art[Newsgroups])
+        self.groups.analyze(art[Newsgroups], art[Followup_To])
 
         # Is the source of the post considered local?
         local = False
@@ -630,6 +630,10 @@ class Filter:
         # We use Message-ID strings so much, it's useful to have a shortcut.
         mid = str(art[Message_ID])
 
+        # Now we're convinced we have a MID, log it for local posts.
+        if local:
+            logging.debug("Local post: %s", mid)
+
         # Control message handling
         if art[Control] is not None:
             ctrltype = str(art[Control]).split(" ", 1)[0]
@@ -647,13 +651,17 @@ class Filter:
                 logging.info('Control: %s, mid=%s' % (art[Control], mid))
             return ''
 
-        # Max-crosspost check
-        if self.groups['count'] > config.get('groups', 'max_crosspost'):
-            return self.reject("Crosspost Limit Exceeded", art, post)
-        # Max low crosspost check
-        if self.groups['count'] > config.get('groups', 'max_low_crosspost'):
-            if self.groups['lowcp'] > 0:
-                return self.reject("Crosspost Low Limit Exceeded", art, post)
+        # No followups is a reject as is more than 2 groups.
+        if self.groups['futcount'] < 1 or self.groups['futcount'] > 2:
+            # Max-crosspost check
+            if self.groups['count'] > config.get('groups', 'max_crosspost'):
+                return self.reject("Crosspost Limit Exceeded", art, post)
+            # Max low crosspost check
+            if self.groups['count'] > config.get('groups',
+                                                 'max_low_crosspost'):
+                if self.groups['lowcp'] > 0:
+                    return self.reject("Crosspost Low Limit Exceeded",
+                                       art, post)
 
         # Lines check
         if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
@@ -749,7 +757,8 @@ class Filter:
 
         # AUK bad crossposts
         if self.groups['kooks'] > 0:
-            if 'alt.free.newsservers' in self.groups['groups']:
+            if ('alt.free.newsservers' in self.groups['groups'] or
+                    'alt.privacy.anon-server' in self.groups['groups']):
                 return self.reject("AUK Bad Crosspost", art, post)
 
         if 'bad_from' in self.etc_re and not gph:
@@ -878,9 +887,10 @@ class Filter:
                     not self.groups['ihn_exclude_bool']):
                 ihn_result = self.etc_re['ihn_hosts']. \
                     search(post['injection-host'])
-                if (ihn_result and
-                        self.emp_ihn.add(post['injection-host'] + ngs)):
-                    return self.reject("EMP IHN Reject", art, post)
+                if ihn_result:
+                    logging.debug("emp_ihn hit: %s", ihn_result.group(0))
+                    if self.emp_ihn.add(post['injection-host'] + ngs):
+                        return self.reject("EMP IHN Reject", art, post)
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
             if art[__BODY__] is not None:
@@ -998,6 +1008,7 @@ class Filter:
         if not os.path.isfile(fqfn):
             logging.info('%s: Regex file not found' % filename)
             if filename in self.etc_re:
+                logging.info("%s: Regex file has been deleted", filename)
                 # The file has been deleted so delete the regex.
                 self.etc_re.pop(filename, None)
                 # Reset the last_modified date to zero
@@ -1029,6 +1040,8 @@ class Filter:
                         continue
                 except ValueError:
                     # If the timestamp is invalid, just ignore the entry
+                    logging.warn("Invalid timestamp in %s. Line=%s",
+                                 filename, line)
                     continue
                 # If processing gets here, the entry is a valid regex.
                 bad_items.append(valid.group(1))
@@ -1125,7 +1138,7 @@ class Groups:
             return True
         return False
 
-    def analyze(self, newsgroups):
+    def analyze(self, newsgroups, followupto):
         # Zero all dict items we'll use in this post
         grp = dict((f, 0) for f in self.grps)
         # This will become a list of newsgroups
@@ -1161,6 +1174,11 @@ class Groups:
             grp[ngbool] = grp[ngelement] == count
         grp['groups'] = sorted(nglist)
         grp['count'] = count
+        # Create a list of Followup-To groups and count them.
+        grp['futcount'] = 0
+        if followupto is not None:
+            futlist = str(followupto).lower().split(',')
+            grp['futcount'] = len(futlist)
         self.grp = grp
 
 
