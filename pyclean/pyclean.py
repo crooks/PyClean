@@ -496,7 +496,7 @@ class Filter:
                            ceiling=config.getint('emp', 'phn_ceiling'),
                            maxentries=config.getint('emp', 'phn_maxentries'),
                            timedtrim=config.getint('emp', 'phn_timed_trim'))
-        self.emp_phl = EMP(name='emp.phl',
+        self.emp_phl = EMP(name='emp_phl',
                            threshold=config.getint('emp', 'phl_threshold'),
                            ceiling=config.getint('emp', 'phl_ceiling'),
                            maxentries=config.getint('emp', 'phl_maxentries'),
@@ -626,7 +626,7 @@ class Filter:
         if Message_ID not in art:
             logging.warn("Wot no Message-ID!  Rejecting message because the "
                          "implications of accepting it are unpredictable.")
-            return self.reject("No Message-ID header", art, post)
+            return self.reject(art, post, "No Message-ID header")
         # We use Message-ID strings so much, it's useful to have a shortcut.
         mid = str(art[Message_ID])
 
@@ -639,14 +639,17 @@ class Filter:
             ctrltype = str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
             if art[Supersedes] is not None:
-                return self.reject('Control %s with Supersedes header'
-                                   % ctrltype, art, post)
+                return self.reject(
+                    art, post,
+                    'Control %s with Supersedes header' % ctrltype)
             if (ctrltype == 'cancel' and
                     config.getboolean('control', 'reject_cancels')):
-                return self.reject("Control cancel", art, post)
+                return self.reject(art, post, "Control cancel")
             elif (ctrltype in self.redundant_controls and
                   config.getboolean('control', 'reject_redundant')):
-                return self.reject("Redundant Control Type: %s" % ctrltype)
+                return self.reject(
+                    art, post,
+                    "Redundant Control Type: %s" % ctrltype)
             else:
                 logging.info('Control: %s, mid=%s' % (art[Control], mid))
             return ''
@@ -655,13 +658,13 @@ class Filter:
         if self.groups['futcount'] < 1 or self.groups['futcount'] > 2:
             # Max-crosspost check
             if self.groups['count'] > config.get('groups', 'max_crosspost'):
-                return self.reject("Crosspost Limit Exceeded", art, post)
+                return self.reject(art, post, "Crosspost Limit Exceeded")
             # Max low crosspost check
             if self.groups['count'] > config.get('groups',
                                                  'max_low_crosspost'):
                 if self.groups['lowcp'] > 0:
-                    return self.reject("Crosspost Low Limit Exceeded",
-                                       art, post)
+                    return self.reject(art, post,
+                                       "Crosspost Low Limit Exceeded")
 
         # Lines check
         if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
@@ -678,15 +681,15 @@ class Filter:
                 config.getboolean('filters', 'newsguy') and
                 'sex_groups' in self.groups and
                 self.groups['sex_groups'] > 0):
-            return self.reject("Newsguy Sex", art, post)
+            return self.reject(art, post, "Newsguy Sex")
 
         # For some reason, this OS2 group has become kook central
         if ('comp.os.os2.advocacy' in self.groups['groups'] and
                 self.groups['count'] > 1):
-            return self.reject("OS2 Crosspost", art, post)
+            return self.reject(art, post, "OS2 Crosspost")
         if (art[Followup_To] and
                 'comp.os.os2.advocacy' in str(art[Followup_To])):
-            return self.reject("OS2 Followup", art, post)
+            return self.reject(art, post, "OS2 Followup")
 
         # Poor snipe is getting the Greg Hall treatment
         if 'injection-host' in post:
@@ -697,7 +700,7 @@ class Filter:
             else:
                 if ("sn!pe" in post['from_name'] or
                         "snipeco" in post['from_email']):
-                    return self.reject("Snipe Forge", art, post)
+                    return self.reject(art, post, "Snipe Forge")
 
         # Compare headers against regex files
 
@@ -716,8 +719,9 @@ class Filter:
                 'bad_posthost' in self.etc_re):
             bph = self.etc_re['bad_posthost'].search(post['posting-host'])
             if bph:
-                return self.reject("Bad Posting-Host (%s)"
-                                   % bph.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Posting-Host (%s)" % bph.group(0))
 
         # Test posting-hosts that are not allowed to crosspost
         if ('posting-host' in post and not gph and
@@ -726,16 +730,18 @@ class Filter:
             ph = post['posting-host']
             bph = self.etc_re['bad_crosspost_host'].search(ph)
             if bph:
-                return self.reject("Bad Crosspost Host (%s)"
-                                   % bph.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Crosspost Host (%s)" % bph.group(0))
 
         # Groups where crossposting is not allowed
         if (self.groups['count'] > 1 and not gph and
                 'bad_cp_groups' in self.etc_re):
             bcg = self.etc_re['bad_cp_groups'].search(art[Newsgroups])
             if bcg:
-                return self.reject("Bad Crosspost Group (%s)"
-                                   % bcg.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Crosspost Group (%s)" % bcg.group(0))
 
         if 'log_from' in self.etc_re:
             lf_result = self.etc_re['log_from'].search(art[From])
@@ -746,39 +752,44 @@ class Filter:
         if 'bad_groups' in self.etc_re and not gph:
             bg_result = self.etc_re['bad_groups'].search(art[Newsgroups])
             if bg_result:
-                return self.reject("Bad Group (%s)" % bg_result.group(0),
-                                   art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Group (%s)" % bg_result.group(0))
 
         if dizum and 'bad_groups_dizum' in self.etc_re:
             bgd = self.etc_re['bad_groups_dizum'].search(art[Newsgroups])
             if bgd:
-                return self.reject("Bad Dizum Group (%s)"
-                                   % bgd.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Dizum Group (%s)" % bgd.group(0))
 
         # AUK bad crossposts
         if self.groups['kooks'] > 0:
             if ('alt.free.newsservers' in self.groups['groups'] or
                     'alt.privacy.anon-server' in self.groups['groups']):
-                return self.reject("AUK Bad Crosspost", art, post)
+                return self.reject(art, post, "AUK Bad Crosspost")
 
         if 'bad_from' in self.etc_re and not gph:
             bf_result = self.etc_re['bad_from'].search(art[From])
             if bf_result:
-                return self.reject("Bad From (%s)" % bf_result.group(0),
-                                   art, post)
+                return self.reject(
+                    art, post,
+                    "Bad From (%s)" % bf_result.group(0))
 
         # Bad subject checking (Currently only on Dizum posts)
         if dizum and 'bad_subject' in self.etc_re and not gph:
             bs_result = self.etc_re['bad_subject'].search(art[Subject])
             if bs_result:
-                return self.reject("Bad Subject (%s)" % bs_result.group(0),
-                                   art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Subject (%s)" % bs_result.group(0))
 
         if 'bad_body' in self.etc_re and not gph:
             bb_result = self.etc_re['bad_body'].search(art[__BODY__])
             if bb_result:
-                return self.reject("Bad Body (%s)" % bb_result.group(0),
-                                   art, post)
+                return self.reject(
+                    art, post,
+                    "Bad Body (%s)" % bb_result.group(0), "Bad Body")
 
         # The following checks are for locally posted articles
 
@@ -787,31 +798,36 @@ class Filter:
                 'local_bad_cp_groups' in self.etc_re):
             b = self.etc_re['local_bad_cp_groups'].search(art[Newsgroups])
             if b:
-                return self.reject("Local Bad Crosspost Group (%s)"
-                                   % b.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Local Bad Crosspost Group (%s)" % b.group(0))
 
         # Local Bad From
         if local and not gph and 'local_bad_from' in self.etc_re:
             reg = self.etc_re['local_bad_from']
             bf_result = reg.search(art[From])
             if bf_result:
-                return self.reject("Local Bad From (%s)"
-                                   % bf_result.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Local Bad From (%s)" % bf_result.group(0))
         # Local Bad Groups
         if local and not gph and 'local_bad_groups' in self.etc_re:
             reg = self.etc_re['local_bad_groups']
             bg_result = reg.search(art[Newsgroups])
             if bg_result:
-                return self.reject("Local Bad Group (%s)"
-                                   % bg_result.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Local Bad Group (%s)" % bg_result.group(0))
 
         # Local Bad Body
         if local and not gph and 'local_bad_body' in self.etc_re:
             reg = self.etc_re['local_bad_body']
             bb_result = reg.search(art[__BODY__])
             if bb_result:
-                return self.reject("Local Bad Body (%s)"
-                                   % bb_result.group(0), art, post)
+                return self.reject(
+                    art, post,
+                    "Local Bad Body (%s)" % bb_result.group(0),
+                    "Local Bad Body")
 
         # Misplaced binary check
         if self.groups['bin_allowed_bool']:
@@ -824,23 +840,25 @@ class Filter:
         # known encoding method.
         if isbin == 'binary':
             if config.getboolean('binary', 'reject_suspected'):
-                return self.reject("Binary (%s)" % isbin, art, post)
+                return self.reject(
+                    art, post, "Binary (%s)" % isbin)
             else:
                 self.logart("Binary Suspect", art, post, "bin_suspect",
                             trim=False)
         elif isbin:
             self.binary.increment(post['feed-host'])
-            return self.reject("Binary (%s)" % isbin, art, post)
+            return self.reject(
+                art, post, "Binary (%s)" % isbin)
 
         # Misplaced HTML check
         if (not self.groups['html_allowed_bool'] and
                 config.getboolean('filters', 'reject_html') and
                 'content_type' in post):
             if 'text/html' in post['content_type']:
-                return self.reject("HTML Misplaced", art, post)
+                return self.reject(art, post, "HTML Misplaced")
             if 'multipart' in post['content_type']:
                 if config.getboolean('filters', 'reject_multipart'):
-                    return self.reject("MIME Multpart", art, post)
+                    return self.reject(art, post, "MIME Multpart")
                 else:
                     logging.debug('Multipart: %s' % mid)
 
@@ -876,11 +894,11 @@ class Filter:
                         return self.reject("EMP PHN Reject", art, post)
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
-                    return self.reject("EMP PHL Reject", art, post)
+                    return self.reject(art, post, "EMP PHL Reject")
             # Beginning of FSL filter
             fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
             if self.emp_fsl.add(fsl):
-                return self.reject("EMP FSL Reject", art, post)
+                return self.reject(art, post, "EMP FSL Reject")
             # Beginning of IHN filter
             if ('injection-host' in post and
                     'ihn_hosts' in self.etc_re and
@@ -890,12 +908,12 @@ class Filter:
                 if ihn_result:
                     logging.debug("emp_ihn hit: %s", ihn_result.group(0))
                     if self.emp_ihn.add(post['injection-host'] + ngs):
-                        return self.reject("EMP IHN Reject", art, post)
+                        return self.reject(art, post, "EMP IHN Reject")
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
             if art[__BODY__] is not None:
                 if self.emp_body.add(art[__BODY__]):
-                    return self.reject("EMP Body Reject", art, post)
+                    return self.reject(art, post, "EMP Body Reject")
 
         if local:
             # All tests passed.  Log the locally posted message.
@@ -907,13 +925,26 @@ class Filter:
         name, email = parseaddr(addr)
         return name.lower(), email.lower()
 
-    def reject(self, reason, art, post):
+    def xreject(self, reason, art, post):
         for logrule in self.log_rules.keys():
             if reason.startswith(logrule):
                 self.logart(reason, art, post, self.log_rules[logrule])
                 break
         logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
         return reason
+
+    def reject(self, art, post, reason, short_reason=None):
+        for logrule in self.log_rules.keys():
+            if reason.startswith(logrule):
+                self.logart(reason, art, post, self.log_rules[logrule])
+                break
+        logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        if short_reason is None:
+            # Sometimes we don't want to provide the source with a detailed
+            # reason of why a message was rejected.  They could then just
+            # tweak their payload to circumvent the cause.
+            return reason
+        return short_reason
 
     def logart(self, reason, art, post, filename, trim=True):
         f = open(os.path.join(config.get('paths', 'logart'), filename), 'a')
@@ -1208,7 +1239,9 @@ class Regex:
                        '^gnu\.']
         self.emp_exclude = self.regex_compile(emp_exclude)
         # Exclude groups from IHN filter
-        ihn_exclude = ['^alt\.anonymous', '^alt\.privacy']
+        ihn_exclude = ['^alt\.anonymous',
+                       '^alt\.privacy',
+                       '^alt\.prophecies\.nostradamus']
         self.ihn_exclude = self.regex_compile(ihn_exclude)
         # Bad posting-hosts
         bad_ph = ['newsguy\.com', 'tornevall\.net']
