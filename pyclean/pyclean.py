@@ -891,7 +891,7 @@ class Filter:
                                   "group in distribution")
                 else:
                     if self.emp_phn.add(fodder + ngs):
-                        return self.reject("EMP PHN Reject", art, post)
+                        return self.reject(art, post, "EMP PHN Reject")
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject(art, post, "EMP PHL Reject")
