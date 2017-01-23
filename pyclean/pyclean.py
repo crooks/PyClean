@@ -480,6 +480,8 @@ class Filter:
         # Content-Type: text/plain; charset=utf-8
         self.regex_ct = re.compile("\s*([^;]+)")
         self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
+        # Symbol matching for ratio-based rejects
+        self.regex_symbols = re.compile("_\|_")
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -862,6 +864,11 @@ class Filter:
                 else:
                     logging.debug('Multipart: %s' % mid)
 
+        # Symbol ratio test
+        symlen = len(self.regex_symbols.findall(art[__BODY__]))
+        if symlen > 10:
+            return self.reject(art, post, "Symbols (%s)" % symlen)
+
         # Start of EMP checks
         if (not self.groups['emp_exclude_bool'] and
                 not self.groups['test_bool']):
@@ -1236,7 +1243,7 @@ class Regex:
         # Exclude from all EMP filters
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
                        '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.',
-                       '^gnu\.']
+                       '^gnu\.', 'lists\.freebsd\.ports\.bugs']
         self.emp_exclude = self.regex_compile(emp_exclude)
         # Exclude groups from IHN filter
         ihn_exclude = ['^alt\.anonymous',
