@@ -112,10 +112,14 @@ def init_config():
     config.set('emp', 'body_maxentries', 5000)
     config.set('emp', 'body_timed_trim', 3600)
     config.set('emp', 'body_fuzzy', 'true')
-    config.set('emp', 'phn_threshold', 150)
-    config.set('emp', 'phn_ceiling', 200)
+    config.set('emp', 'phn_threshold', 100)
+    config.set('emp', 'phn_ceiling', 150)
     config.set('emp', 'phn_maxentries', 5000)
     config.set('emp', 'phn_timed_trim', 1800)
+    config.set('emp', 'lphn_threshold', 20)
+    config.set('emp', 'lphn_ceiling', 30)
+    config.set('emp', 'lphn_maxentries', 200)
+    config.set('emp', 'lphn_timed_trim', 1800)
     config.set('emp', 'phl_threshold', 20)
     config.set('emp', 'phl_ceiling', 80)
     config.set('emp', 'phl_maxentries', 5000)
@@ -498,6 +502,11 @@ class Filter:
                            ceiling=config.getint('emp', 'phn_ceiling'),
                            maxentries=config.getint('emp', 'phn_maxentries'),
                            timedtrim=config.getint('emp', 'phn_timed_trim'))
+        self.emp_lphn = EMP(name='emp_lphn',
+                            threshold=config.getint('emp', 'lphn_threshold'),
+                            ceiling=config.getint('emp', 'lphn_ceiling'),
+                            maxentries=config.getint('emp', 'lphn_maxentries'),
+                            timedtrim=config.getint('emp', 'lphn_timed_trim'))
         self.emp_phl = EMP(name='emp_phl',
                            threshold=config.getint('emp', 'phl_threshold'),
                            ceiling=config.getint('emp', 'phl_ceiling'),
@@ -892,13 +901,17 @@ class Filter:
             else:
                 fodder = None
             if fodder:
-                # Beginning of PHN filter
+                # Beginning of PHN filters
                 if 'moderated' in self.groups and self.groups['moderated']:
                     logging.debug("Bypassing PHN filter due to moderated "
                                   "group in distribution")
+                elif local:
+                    if self.emp_lphn.add(fodder + ngs):
+                        return self.reject(art, post, "EMP Local PHN Reject")
                 else:
                     if self.emp_phn.add(fodder + ngs):
                         return self.reject(art, post, "EMP PHN Reject")
+                    # Beginning of PHN_Local filter
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject(art, post, "EMP PHL Reject")
@@ -997,6 +1010,7 @@ class Filter:
         self.emp_fsl.statlog()
         self.emp_phl.statlog()
         self.emp_phn.statlog()
+        self.emp_lphn.statlog()
         self.emp_ihn.statlog()
         # Reload logging directives
         logging.debug('Reloading logging directives')
@@ -1032,6 +1046,7 @@ class Filter:
         self.emp_fsl.reset()
         self.emp_phl.reset()
         self.emp_phn.reset()
+        self.emp_lphn.reset()
         self.emp_ihn.reset()
         # Set the midnight trigger for next day.
         self.midnight_trigger = next_midnight()
@@ -1149,6 +1164,7 @@ class Filter:
         self.emp_fsl.dump()
         self.emp_phl.dump()
         self.emp_phn.dump()
+        self.emp_lphn.dump()
         self.emp_ihn.dump()
 
 
@@ -1364,12 +1380,17 @@ class EMP:
         # As the EMP table is about to be modified, oldsize records it prior
         # to doing any changes.  This is only used for reporting purposes.
         self.stats['oldsize'] = len(self.table)
+        # Keep a running check of the largest count against a key.
+        self.stats['high'] = 0
         for h in self.table.keys():
             self.table[h] -= 1
+            if self.table[h] > self.stats['high']:
+                self.stats['high'] = self.table[h]
             if self.table[h] <= 0:
                 del self.table[h]
         self.stats['size'] = len(self.table)
-        logging.info('%(name)s: Trimmed from %(oldsize)s to %(size)s',
+        logging.info("%(name)s: Trim complete. was=%(oldsize)s, now=%(size)s, "
+                     "high=%(high)s",
                      self.stats)
         self.stats['nexttrim'] = \
             future(secs=self.stats['timedtrim'])
