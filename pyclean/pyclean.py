@@ -459,6 +459,7 @@ class Filter:
             'local_bad_cp_groups',
             'local_bad_from',
             'local_bad_groups',
+            'local_bad_subject',
             'local_hosts',
             'log_from']
         # Each regex_files key contains a timestamp of last-modified time.
@@ -821,6 +822,15 @@ class Filter:
                 return self.reject(
                     art, post,
                     "Local Bad From (%s)" % bf_result.group(0))
+        # Local Bad Subject
+        if local and not gph and 'local_bad_subject' in self.etc_re:
+            reg = self.etc_re['local_bad_subject']
+            bs_result = reg.search(art[Subject])
+            if bs_result:
+                return self.reject(
+                    art, post,
+                    "Local Bad Subject (%s)" % bs_result.group(0),
+                    "Local Reject")
         # Local Bad Groups
         if local and not gph and 'local_bad_groups' in self.etc_re:
             reg = self.etc_re['local_bad_groups']
