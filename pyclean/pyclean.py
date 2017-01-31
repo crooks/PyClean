@@ -486,7 +486,7 @@ class Filter:
         self.regex_ct = re.compile("\s*([^;]+)")
         self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
         # Symbol matching for ratio-based rejects
-        self.regex_symbols = re.compile("_\|_")
+        self.regex_symbols = re.compile("\\_/ |_\|_")
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -821,7 +821,8 @@ class Filter:
             if bf_result:
                 return self.reject(
                     art, post,
-                    "Local Bad From (%s)" % bf_result.group(0))
+                    "Local Bad From (%s)" % bf_result.group(0),
+                    "Local Reject")
         # Local Bad Subject
         if local and not gph and 'local_bad_subject' in self.etc_re:
             reg = self.etc_re['local_bad_subject']
@@ -848,7 +849,7 @@ class Filter:
                 return self.reject(
                     art, post,
                     "Local Bad Body (%s)" % bb_result.group(0),
-                    "Local Bad Body")
+                    "Local Reject")
 
         # Misplaced binary check
         if self.groups['bin_allowed_bool']:
