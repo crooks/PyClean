@@ -893,6 +893,13 @@ class Filter:
         if (not self.groups['emp_exclude_bool'] and
                 not self.groups['test_bool']):
             ngs = ','.join(self.groups['groups'])
+            # If a substring matches the Newsgroups header, use just that
+            # substring as EMP fodder where a Newsgroups name is normally used.
+            for ngsub in self.ngsubs:
+                if ngsub in self.groups['groups']:
+                    logging.debug("Newsgroup substring match: %s", ngsub)
+                    ngs = ngsub
+                    break
             # Start of posting-host based checks.
             # First try and seed some filter fodder.
             if 'posting-account' in post:
@@ -1029,6 +1036,8 @@ class Filter:
         # Reload Injection-Host substrings
         logging.debug('Reloading Injection-Host substrings')
         self.ihsubs = self.file2list('ih_substrings')
+        logging.debug('Reloading Newsgroup substrings')
+        self.ngsubs = self.file2list('ng_emp_subst')
         # Set up Regular Expressions
         for fn in self.regex_files.keys():
             new_regex = self.regex_file(fn)
