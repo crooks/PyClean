@@ -486,7 +486,7 @@ class Filter:
         self.regex_ct = re.compile("\s*([^;]+)")
         self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
         # Symbol matching for ratio-based rejects
-        self.regex_symbols = re.compile("\\_/ |_\|_")
+        self.regex_symbols = re.compile("\\_/ |_\|_|[a-z]\.{2,}[a-z]")
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -886,7 +886,7 @@ class Filter:
 
         # Symbol ratio test
         symlen = len(self.regex_symbols.findall(art[__BODY__]))
-        if symlen > 10:
+        if symlen > 100:
             return self.reject(art, post, "Symbols (%s)" % symlen)
 
         # Start of EMP checks
