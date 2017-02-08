@@ -1031,13 +1031,13 @@ class Filter:
         self.emp_lphn.statlog()
         self.emp_ihn.statlog()
         # Reload logging directives
-        logging.debug('Reloading logging directives')
         self.log_rules = self.file2dict('log_rules')
+        logging.info('Reloaded %s logging directives', len(self.log_rules))
         # Reload Injection-Host substrings
-        logging.debug('Reloading Injection-Host substrings')
         self.ihsubs = self.file2list('ih_substrings')
-        logging.debug('Reloading Newsgroup substrings')
+        logging.info('Reloaded %s Injection-Host substrings', len(self.ihsubs))
         self.ngsubs = self.file2list('ng_emp_subst')
+        logging.info('Reloaded %s Newsgroup substrings', len(self.ngsubs))
         # Set up Regular Expressions
         for fn in self.regex_files.keys():
             new_regex = self.regex_file(fn)
