@@ -487,6 +487,8 @@ class Filter:
         self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
         # Symbol matching for ratio-based rejects
         self.regex_symbols = re.compile("\\_/ |_\|_|[a-z]\.{2,}[a-z]")
+        # Match lines that start with a CR
+        self.regex_crspace = re.compile("^\r ", re.MULTILINE)
         # Redundant control message types
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
@@ -896,8 +898,8 @@ class Filter:
             # If a substring matches the Newsgroups header, use just that
             # substring as EMP fodder where a Newsgroups name is normally used.
             for ngsub in self.ngsubs:
-                if ngsub in self.groups['groups']:
-                    logging.debug("Newsgroup substring match: %s", ngsub)
+                if ngsub in ngs:
+                    logging.info("Newsgroup substring match: %s", ngsub)
                     ngs = ngsub
                     break
             # Start of posting-host based checks.
@@ -924,12 +926,30 @@ class Filter:
                     logging.debug("Bypassing PHN filter due to moderated "
                                   "group in distribution")
                 elif local:
-                    if self.emp_lphn.add(fodder + ngs):
+                    # Beginning of PHN_Local filter
+                    do_lphn = True
+                    if self.groups['phn_exclude_bool']:
+                            do_lphn = False
+                    if (not do_lphn and art['References'] is None and
+                            'Subject' in art and
+                            str(art['Subject']).startswith("Re:")):
+                        logging.info("emp_lphn: Exclude overridden - "
+                                     "Subject Re but no Reference")
+                        do_lphn = True
+                    if (not do_lphn and
+                            self.regex_crspace.search(art[__BODY__])):
+                        logging.info("emp_lphn: Exclude overridden - "
+                                     "Carriage Return starts line")
+                        do_lphn = True
+                    if do_lphn and self.emp_lphn.add(fodder + ngs):
                         return self.reject(art, post, "EMP Local PHN Reject")
                 else:
-                    if self.emp_phn.add(fodder + ngs):
+                    # Beginning of standard PHN filter
+                    if self.groups['phn_exclude_bool']:
+                        logging.debug("emp_phn exclude for: %s",
+                                      art['Newsgroups'])
+                    elif self.emp_phn.add(fodder + ngs):
                         return self.reject(art, post, "EMP PHN Reject")
-                    # Beginning of PHN_Local filter
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject(art, post, "EMP PHL Reject")
@@ -1200,6 +1220,7 @@ class Groups:
             'kooks',
             'lowcp',
             'moderated',
+            'phn_exclude',
             'sex_groups',
             'test'
             ]
@@ -1236,6 +1257,8 @@ class Groups:
                 grp['kooks'] += 1
             if self.regex.lowcp.search(ng):
                 grp['lowcp'] += 1
+            if self.regex.phn_exclude.search(ng):
+                grp['phn_exclude'] += 1
             if self.regex.sex_groups.search(ng):
                 grp['sex_groups'] += 1
             if INN.newsgroup(ng) == 'm':
@@ -1286,6 +1309,9 @@ class Regex:
                        '^alt\.privacy',
                        '^alt\.prophecies\.nostradamus']
         self.ihn_exclude = self.regex_compile(ihn_exclude)
+        # Exclude groups from PHN filter
+        phn_exclude = ['^alt\.privacy\.']
+        self.phn_exclude = self.regex_compile(phn_exclude)
         # Bad posting-hosts
         bad_ph = ['newsguy\.com', 'tornevall\.net']
         self.bad_ph = self.regex_compile(bad_ph)
