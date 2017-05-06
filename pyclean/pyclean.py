@@ -345,6 +345,7 @@ class Binary:
         self.regex_yenc = re.compile('^=ybegin.*', re.M)
         self.regex_uuenc = re.compile('^begin[ \t]+\d{3,4}[ \t]+\w+\.\w', re.M)
         self.regex_base64 = re.compile('[a-zA-Z0-9+/]{59}')
+        self.regex_numeric = re.compile('[0-9]{59}')
         self.regex_binary = re.compile('[ \t]*\S{40}')
         # Feedhosts keeps a tally of how many binary articles are received
         # from each upstream peer.
@@ -405,9 +406,14 @@ class Binary:
                         and config.getboolean('binary', 'allow_pgp'))
             if skip_pgp:
                 break
+            if line == "-- ":
+                # Don't include signatures in binary testing
+                break
             # Resetting the next counter to zero on a non-matching line
-            # dictates the counted binary lines must be consecutive.
-            if self.regex_base64.match(line):
+            # dictates the counted binary lines must be consecutive.  We also
+            # test that a numeric line doesn't trigger a Base64 match.
+            if (self.regex_base64.match(line) and
+                    not self.regex_numeric(line)):
                 b64match += 1
             else:
                 b64match = 0
