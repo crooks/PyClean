@@ -981,6 +981,8 @@ class Filter:
 
         if local:
             # All tests passed.  Log the locally posted message.
+            logging.info("post: mid=%s, from=%s, groups=%s",
+                         art[Message_ID], art[From], art[Newsgroups])
             self.logart('Local Post', art, post, 'local_post')
         # The article passed all checks. Return an empty string.
         return ""
