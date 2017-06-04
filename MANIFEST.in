@@ -1,9 +1,0 @@
-include CHANGES
-include INSTALL
-include LICENSE
-include README
-include samples/pyclean.cfg.sample
-include samples/ih_substrings
-include samples/log_rules
-include samples/local_hosts
-include samples/bad_from
