@@ -232,6 +232,9 @@ class InndFilter:
         """
         try:
             self.pyfilter.closetasks()
+            logging.info("Re-reading config file")
+            global config
+            config = init_config()
         except:
             fn = os.path.join(config.get('paths', 'log'), 'close_traceback')
             f = open(fn, 'a')
