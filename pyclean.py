@@ -413,7 +413,7 @@ class Binary:
             # dictates the counted binary lines must be consecutive.  We also
             # test that a numeric line doesn't trigger a Base64 match.
             if (self.regex_base64.match(line) and
-                    not self.regex_numeric(line)):
+                    not self.regex_numeric.match(line)):
                 b64match += 1
             else:
                 b64match = 0
