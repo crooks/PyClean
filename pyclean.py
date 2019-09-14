@@ -787,10 +787,10 @@ class Filter:
                     "Bad Dizum Group (%s)" % bgd.group(0))
 
         # AUK bad crossposts
-        if self.groups['kooks'] > 0:
-            if ('alt.free.newsservers' in self.groups['groups'] or
-                    'alt.privacy.anon-server' in self.groups['groups']):
-                return self.reject(art, post, "AUK Bad Crosspost")
+        #if self.groups['kooks'] > 0:
+        #    if ('alt.free.newsservers' in self.groups['groups'] or
+        #            'alt.privacy.anon-server' in self.groups['groups']):
+        #        return self.reject(art, post, "AUK Bad Crosspost")
 
         if 'bad_from' in self.etc_re and not gph:
             bf_result = self.etc_re['bad_from'].search(art[From])
