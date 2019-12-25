@@ -1400,6 +1400,14 @@ class EMP:
                           self.stats['name'])
             return False
 
+        # See if it's time to perform a trim.
+        if now() > self.stats['nexttrim']:
+            self._trim()
+        elif len(self.table) > self.stats['maxentries']:
+            logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
+            logging.warn(logmes % self.stats)
+            self._trim()
+
         # MD5 is weak in cryptographic terms, but do I care for the purpose
         # of EMP collision checking?  Obviously not or I'd use something else.
         h = md5(content).digest()
@@ -1412,14 +1420,6 @@ class EMP:
                               self.stats['name'])
 
         else:
-            # See if it's time to perform a trim.  We only care about doing
-            # this when a new entry is being made.
-            if now() > self.stats['nexttrim']:
-                self._trim()
-            elif len(self.table) > self.stats['maxentries']:
-                logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
-                logging.warn(logmes % self.stats)
-                self._trim()
             # Initialize the md5 entry.
             self.table[h] = 1
         if self.table[h] > self.stats['threshold']:
