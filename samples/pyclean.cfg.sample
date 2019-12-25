@@ -95,6 +95,13 @@
 #ihn_threshold = 10
 #ihn_timed_trim = 7200
 
+# lphn filters are identical to phn but only match injection-hosts defined in
+# the local_hosts file.
+#lphn_threshold = 20
+#lphn_ceiling = 30
+#lphn_maxentries = 200
+#lphn_timed_trim = 1800
+
 # phl filters are seeded on Posting-Host and Lines.
 #phl_ceiling = 80
 #phl_maxentries = 5000
