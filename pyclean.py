@@ -908,7 +908,7 @@ class Filter:
             # substring as EMP fodder where a Newsgroups name is normally used.
             for ngsub in self.ngsubs:
                 if ngsub in ngs:
-                    logging.info("Newsgroup substring match: %s", ngsub)
+                    logging.debug("Newsgroup substring match: %s", ngsub)
                     ngs = ngsub
                     break
             # Start of posting-host based checks.
@@ -1365,6 +1365,7 @@ class EMP:
         # Initialize some defaults
         self.stats = {'name': name,
                       'nexttrim': future(secs=timedtrim),
+                      'lasttrim': now(),
                       'processed': 0,
                       'accepted': 0,
                       'rejected': 0,
@@ -1401,12 +1402,21 @@ class EMP:
             return False
 
         # See if it's time to perform a trim.
-        if now() > self.stats['nexttrim']:
-            self._trim()
+        n = now()
+        if n > self.stats['nexttrim']:
+            secs_since_lasttrim = (n - self.stats['lasttrim']).seconds
+            decrement = int(secs_since_lasttrim / self.stats['timedtrim'])
+            logmes = "%s: Trim decrement factor=%s"
+            logging.debug(logmes % (self.stats['name'], decrement))
+            if decrement > 0:
+                self._trim(decrement)
+            else:
+                logmes = "%s: Invalid attempt to trim by less than 1"
+                logging.error(logmes % (self.stats['name'], decrement))
         elif len(self.table) > self.stats['maxentries']:
             logmes = '%(name)s: Exceeded maxentries of %(maxentries)s'
             logging.warn(logmes % self.stats)
-            self._trim()
+            self._trim(1)
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
         # of EMP collision checking?  Obviously not or I'd use something else.
@@ -1429,7 +1439,7 @@ class EMP:
         self.stats['accepted'] += 1
         return False
 
-    def _trim(self):
+    def _trim(self, decrement):
         """Decrement the counter against each hash.  If the counter reaches
         zero, delete the hash entry.
 
@@ -1440,17 +1450,19 @@ class EMP:
         # Keep a running check of the largest count against a key.
         self.stats['high'] = 0
         for h in self.table.keys():
-            self.table[h] -= 1
+            self.table[h] -= decrement
             if self.table[h] > self.stats['high']:
                 self.stats['high'] = self.table[h]
             if self.table[h] <= 0:
                 del self.table[h]
         self.stats['size'] = len(self.table)
+        self.stats['decrement'] = decrement
         logging.info("%(name)s: Trim complete. was=%(oldsize)s, now=%(size)s, "
-                     "high=%(high)s",
+                     "high=%(high)s, decrement=%(decrement)s",
                      self.stats)
         self.stats['nexttrim'] = \
             future(secs=self.stats['timedtrim'])
+        self.stats['lasttrim'] = now()
 
     def statlog(self):
         """Log details of the EMP hash."""
