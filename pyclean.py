@@ -1003,11 +1003,17 @@ class Filter:
         return reason
 
     def reject(self, art, post, reason, short_reason=None):
+        rulehit = False
         for logrule in self.log_rules.keys():
             if reason.startswith(logrule):
                 self.logart(reason, art, post, self.log_rules[logrule])
+                rulehit = True
                 break
-        logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        if rulehit:
+            logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        else:
+            msg = "reject: No matched logging rule: mid=%s, reason=%s"
+            logging.warn(msg.format(art[Message_ID], reason))
         if short_reason is None:
             # Sometimes we don't want to provide the source with a detailed
             # reason of why a message was rejected.  They could then just
