@@ -2,7 +2,6 @@
 
 import INN
 
-import ConfigParser
 import datetime
 import logging
 import logging.handlers
@@ -26,6 +25,16 @@ try:
 except ImportError:
     from md5 import md5
 
+try:
+    import configparser
+except ImportError:
+    import ConfigParser
+    configparser=ConfigParser
+
+try:
+    from sys import intern
+except ImportError:
+    pass
 
 # First, define some high-level date/time functions
 def now():
@@ -76,7 +85,7 @@ def makedir(d):
     if not os.path.isdir(d):
         parent = os.path.dirname(d)
         if os.path.isdir(parent):
-            os.mkdir(d, 0700)
+            os.mkdir(d, 0o700)
             sys.stdout.write("%s: Directory created.\n" % d)
         else:
             msg = "%s: Unable to make directory. Aborting.\n" % d
@@ -86,7 +95,7 @@ def makedir(d):
 
 def init_config():
     # Configure the Config Parser.
-    config = ConfigParser.RawConfigParser()
+    config = configparser.RawConfigParser()
 
     # Logging
     config.add_section('logging')
@@ -1541,7 +1550,7 @@ python_filter = InndFilter()
 try:
     INN.set_filter_hook(python_filter)
     INN.syslog('n', "pyclean successfully hooked into INN")
-except Exception, errmsg:    # Syntax for Python 2.x.
+except Exception as errmsg:
     INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
 
 # This looks weird, but creating and interning these strings should let us get
