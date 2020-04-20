@@ -1021,7 +1021,7 @@ class Filter:
         if rulehit:
             logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
         else:
-            msg = "reject: No matched logging rule: mid=%s, reason=%s"
+            msg = "reject: No matched logging rule: mid={}, reason={}"
             logging.warn(msg.format(art[Message_ID], reason))
         if short_reason is None:
             # Sometimes we don't want to provide the source with a detailed
