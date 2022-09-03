@@ -13,13 +13,13 @@ import sys
 import time
 import traceback
 
-# In Python2.4, utils was called Utils
+# In Python 2.4, utils was called Utils.
 try:
     from email.utils import parseaddr
 except ImportError:
     from email.Utils import parseaddr
 
-# Python 2.4 doesn't have hashlib
+# Python 2.4 doesn't have hashlib.
 try:
     from hashlib import md5
 except ImportError:
@@ -63,26 +63,25 @@ def now():
     return datetime.datetime.utcnow()
     # return datetime.datetime.now()
 
-
 def timestamp(stamp):
     return stamp.strftime("%Y-%m-%d %H:%M:%S")
 
-
 def dateobj(datestr):
-    """Take a string formated date (yyyymmdd) and return a datetime object."""
-    # Python 2.4 compatibility
+    """Take a string formated date (yyyymmdd) and return a datetime object.
+
+    """
+    # Python 2.4 compatibility.
     return datetime.datetime(*(time.strptime(datestr, '%Y%m%d')[0:6]))
     # return datetime.datetime.strptime(datestr, '%Y%m%d')
 
-
 def nowstamp():
-    """A shortcut function to return a textual representation of now."""
-    return timestamp(now())
+    """A shortcut function to return a textual representation of now.
 
+    """
+    return timestamp(now())
 
 def last_midnight():
     return now().replace(hour=0, minute=0, second=0, microsecond=0)
-
 
 def next_midnight():
     """Return a datetime object relating to the next midnight.
@@ -90,18 +89,16 @@ def next_midnight():
     """
     return last_midnight() + datetime.timedelta(days=1)
 
-
 def future(days=0, hours=0, mins=0, secs=0):
     return now() + datetime.timedelta(days=days, hours=hours,
                                       minutes=mins, seconds=secs)
 
-# -----This section is concerned with setting up a default configuration
-
+# ----- This section is concerned with setting up a default configuration.
 
 def makedir(d):
-    """Check if a given directory exists.  If it doesn't, check if the
-    parent exists.  If it does then the new directory will be created.  If
-    not then sensible options are exhausted and the program aborts.
+    """Check if a given directory exists.  If it doesn't, check if the parent
+    exists.  If it does, then the new directory will be created.  If not,
+    then sensible options are exhausted and the program aborts.
 
     """
     if not os.path.isdir(d):
@@ -110,10 +107,9 @@ def makedir(d):
             os.mkdir(d, 0o700)
             sys.stdout.write("%s: Directory created.\n" % d)
         else:
-            msg = "%s: Unable to make directory. Aborting.\n" % d
+            msg = "%s: Unable to make directory.  Aborting.\n" % d
             sys.stdout.write(msg)
             sys.exit(1)
-
 
 def init_config():
     # Configure the Config Parser.
@@ -180,7 +176,7 @@ def init_config():
     config.add_section('hostnames')
     config.set('hostnames', 'path_hostname', 'true')
 
-    # The path section is a bit tricky. First off we try to read a default
+    # The path section is a bit tricky. First off, we try to read a default
     # config file.  This can define the path to everything, including the
     # pyclean.cfg config file.  For this reason, all the path entries that
     # could generate directories need to come after the config files have
@@ -199,7 +195,7 @@ def init_config():
         config.read(default)
     # By default, all the paths are subdirectories of the homedir.
     homedir = os.path.expanduser('~')
-    # Define the basedir for pyclean.  By default this will be ~/pyclean
+    # Define the basedir for pyclean.  By default this will be ~/pyclean.
     basedir = os.path.join(homedir, 'pyclean')
     # If the default file hasn't specified an etc path, we need to assume a
     # default.  Usually /usr/local/news/pyclean/etc.
@@ -217,8 +213,8 @@ def init_config():
 
     if not config.has_option('paths', 'log'):
         config.set('paths', 'log', os.path.join(basedir, 'log'))
-        # As with the etc section above, we know basedir is required now. No
-        # harm in trying to create it multiple times.
+        # As with the etc section above, we know basedir is required now.
+        # No harm in trying to create it multiple times.
         makedir(basedir)
     makedir(config.get('paths', 'log'))
 
@@ -231,14 +227,16 @@ def init_config():
     makedir(config.get('paths', 'lib'))
 
     # The following lines can be uncommented in order to write a config
-    # file. This is useful for creating an example file.
+    # file.  This is useful for creating an example file.
     # with open('example.cfg', 'wb') as configfile:
     #    config.write(configfile)
     return config
 
 
 class InndFilter:
-    """Provide filtering callbacks to innd."""
+    """Provide filtering callbacks to innd.
+
+    """
 
     def __init__(self):
         """This runs every time the filter is loaded or reloaded.
@@ -260,6 +258,7 @@ class InndFilter:
 
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
+
         """
         try:
             self.pyfilter.closetasks()
@@ -278,6 +277,7 @@ class InndFilter:
 
         You can use this method to save state information to be
         restored by the __init__() method or down in the main module.
+
         """
         try:
             self.pyfilter.closetasks()
@@ -287,7 +287,6 @@ class InndFilter:
             traceback.print_exc(file=f)
             f.close()
         return ""
-        INN.syslog('notice', "filter_close running, bye!")
 
     def filter_messageid(self, msgid):
         """Filter articles just by their Message-IDs.
@@ -299,39 +298,43 @@ class InndFilter:
         looking at it (unless TAKETHIS is used before an earlier CHECK).
         Make sure that such a message is properly encoded in UTF-8
         so as to comply with the NNTP protocol.
+
         """
-        return ""               # Deactivate the samples.
+        return ""
 
     def filter_art(self, art):
         """Decide whether to keep offered articles.
 
-        art is a dictionary with a bunch of headers, the article's
+        art is a dictionary with a bunch of header fields, the article's
         body, and innd's reckoning of the line count.  Items not
         in the article will have a value of None.
 
-        The available headers are the ones listed near the top of
+        The available header fields are the ones listed near the top of
         innd/art.c.  At this writing, they are:
 
-            Also-Control, Approved, Archive, Archived-At, Bytes, Cancel-Key,
-            Cancel-Lock, Content-Base, Content-Disposition,
-            Content-Transfer-Encoding, Content-Type, Control, Date,
-            Date-Received, Distribution, Expires, Face, Followup-To, From,
-            In-Reply-To, Injection-Date, Injection-Info, Keywords, Lines,
-            List-ID, Message-ID, MIME-Version, Newsgroups, NNTP-Posting-Date,
-            NNTP-Posting-Host, NNTP-Posting-Path, Organization,
-            Original-Sender, Originator, Path, Posted, Posting-Version,
-            Received, References, Relay-Version, Reply-To, Sender, Subject,
-            Summary, Supersedes, User-Agent, X-Auth, X-Auth-Sender,
-            X-Canceled-By, X-Cancelled-By, X-Complaints-To, X-Face,
-            X-HTTP-UserAgent, X-HTTP-Via, X-Mailer, X-Modbot, X-Modtrace,
-            X-Newsposter, X-Newsreader, X-No-Archive, X-Original-Message-ID,
-            X-Original-NNTP-Posting-Host, X-Original-Trace, X-Originating-IP,
-            X-PGP-Key, X-PGP-Sig, X-Poster-Trace, X-Postfilter, X-Proxy-User,
-            X-Submissions-To, X-Trace, X-Usenet-Provider, X-User-ID, Xref.
+            Also-Control, Approved, Archive, Archived-At, Bytes,
+            Cancel-Key, Cancel-Lock, Comments, Content-Base,
+            Content-Disposition, Content-Transfer-Encoding,
+            Content-Type, Control, Date, Date-Received, Distribution,
+            Expires, Face, Followup-To, From, In-Reply-To,
+            Injection-Date, Injection-Info, Jabber-ID, Keywords,
+            Lines, List-ID, Message-ID, MIME-Version, Newsgroups,
+            NNTP-Posting-Date, NNTP-Posting-Host, NNTP-Posting-Path,
+            Organization, Original-Sender, Originator, Path, Posted,
+            Posting-Version, Received, References, Relay-Version,
+            Reply-To, Sender, Subject, Summary, Supersedes,
+            User-Agent, X-Auth, X-Auth-Sender, X-Canceled-By,
+            X-Cancelled-By, X-Complaints-To, X-Face, X-HTTP-UserAgent,
+            X-HTTP-Via, X-Mailer, X-Modbot, X-Modtrace, X-Newsposter,
+            X-Newsreader, X-No-Archive, X-Original-Message-ID,
+            X-Original-NNTP-Posting-Host, X-Original-Trace,
+            X-Originating-IP, X-PGP-Key, X-PGP-Sig, X-Poster-Trace,
+            X-Postfilter, X-Proxy-User, X-Submissions-To, X-Trace,
+            X-Usenet-Provider, X-User-ID, Xref.
 
         The body is the buffer in art[__BODY__] and the INN-reckoned
         line count is held as an integer in art[__LINES__].  (The
-        Lines: header is often generated by the poster, and large
+        Lines header field is often generated by the poster, and large
         differences can be a good indication of a corrupt article.)
 
         If you want to keep an article, return None or "".  If you
@@ -362,9 +365,10 @@ class InndFilter:
         usually just a comment string.
 
         The possible values of newmode and oldmode are the five
-        strings 'running', 'paused', 'throttled', 'shutdown' and
-        'unknown'.  Actually 'unknown' shouldn't happen; it's there
+        strings "running", "paused", "throttled", "shutdown" and
+        "unknown".  Actually "unknown" shouldn't happen; it's there
         in case feeping creatures invade innd.
+
         """
         INN.syslog('n', 'state change from %s to %s - %s'
                         % (oldmode, newmode, reason))
@@ -387,7 +391,9 @@ class Binary:
         self.tagged = 0
 
     def increment(self, pathhost):
-        """Increment feedhosts."""
+        """Increment feedhosts.
+
+        """
         if pathhost in self.feedhosts:
             self.feedhosts[pathhost] += 1
         else:
@@ -426,14 +432,15 @@ class Binary:
         # number of binary lines.
         if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
-        # Also avoid these costly checks where a References header is present.
+        # Also avoid these costly checks where a References header field
+        # is present.
         skip_refs = (art[References] is not None and
                      mem2str(art[References]).startswith('<') and
                      config.getboolean('binary', 'fasttrack_references') and
                      int(art[__LINES__]) > 500)
         if skip_refs:
             return False
-        # Base64 and suspect binary matching
+        # Base64 and suspect binary matching.
         b64match = 0
         suspect = 0
         for line in mem2str(art[__BODY__]).split('\n'):
@@ -442,7 +449,7 @@ class Binary:
             if skip_pgp:
                 break
             if line == "-- ":
-                # Don't include signatures in binary testing
+                # Don't include signatures in binary testing.
                 break
             # Resetting the next counter to zero on a non-matching line
             # dictates the counted binary lines must be consecutive.  We also
@@ -471,15 +478,15 @@ class Filter:
 
         """
 
-        # Initialize Group Analizer
+        # Initialize Group Analyzer.
         self.groups = Groups()
-        # Initialize Binary Filters
+        # Initialize Binary Filters.
         self.binary = Binary()
 
-        # Posting Host and Posting Account
+        # Posting Host and Posting Account.
         self.regex_ph = re.compile('posting-host *= *"?([^";]+)')
         self.regex_pa = re.compile('posting-account *= *"?([^";]+)')
-        # Match lines in regex_files formated /regex/ timestamp(YYYYMMDD)
+        # Match lines in regex_files formated /regex/ timestamp(YYYYMMDD).
         self.regex_fmt = re.compile('/(.+)/[ \t]+(\d{8})')
 
         # A dictionary of files containing regexs that need to be reloaded and
@@ -516,25 +523,25 @@ class Filter:
         self.regex_hostname = re.compile('([a-zA-Z0-9]|[a-zA-Z0-9]'
                                          '[a-zA-Z0-9\-]+[a-zA-Z0-9])'
                                          '(\.[a-zA-Z0-9\-]+)+')
-        # Path replacement regexs
-        self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs
-        # Match email addresses
+        # Path replacement regexs.
+        self.regex_pathhost = re.compile('(![^\.]+)+$')  # Strip RH non-FQDNs.
+        # Match email addresses.
         self.regex_email = \
             re.compile('([\w\-][\w\-\.]*)@[\w\-][\w\-\.]+[a-zA-Z]{1,4}')
-        # Colon/Space seperated fields
+        # Colon/Space separated fields.
         self.regex_fields = re.compile('[ \t]*([^:]+):[ \t]+(\S+)')
         # Content-Type: text/plain; charset=utf-8
         self.regex_ct = re.compile("\s*([^;]+)")
         self.regex_ctcs = re.compile('charset="?([^"\s;]+)')
-        # Symbol matching for ratio-based rejects
+        # Symbol matching for ratio-based rejects.
         self.regex_symbols = re.compile("\\_/ |_\|_|[a-z]\.{2,}[a-z]")
-        # Match lines that start with a CR
+        # Match lines that start with a CR.
         self.regex_crspace = re.compile("^\r ", re.MULTILINE)
-        # Redundant control message types
+        # Redundant control message types.
         self.redundant_controls = ['sendsys', 'senduuname', 'version',
                                    'whogets']
 
-        # Set up the EMP filters
+        # Set up the EMP filters.
         self.emp_body = EMP(name='emp_body',
                             threshold=config.getint('emp', 'body_threshold'),
                             ceiling=config.getint('emp', 'body_ceiling'),
@@ -567,22 +574,22 @@ class Filter:
                            maxentries=config.getint('emp', 'ihn_maxentries'),
                            timedtrim=config.getint('emp', 'ihn_timed_trim'))
 
-        # Initialize timed events
+        # Initialize timed events.
         self.hourly_events(startup=True)
-        # Set a datetime object for next midnight
+        # Set a datetime object for next midnight.
         self.midnight_trigger = next_midnight()
 
     def filter(self, art):
-        # Initialize the posting info dict
+        # Initialize the posting info dict.
         post = {}
 
-        # Trigger timed reloads
+        # Trigger timed reloads.
         if now() > self.hourly_trigger:
             self.hourly_events()
         if now() > self.midnight_trigger:
             self.midnight_events()
 
-        # Attempt to split the From address into component parts
+        # Attempt to split the From address into component parts.
         if art[From] is not None:
             post['from_name'], \
                 post['from_email'] = self.addressParse(mem2str(art[From]))
@@ -596,36 +603,36 @@ class Filter:
                 post['charset'] = ctcs.group(1).lower()
 
         # Try to establish the injection-host, posting-host and
-        # posting-account
+        # posting-account.
         if art[Injection_Info] is not None:
-            # Establish Posting Account
+            # Establish Posting Account.
             ispa = self.regex_pa.search(mem2str(art[Injection_Info]))
             if ispa:
                 post['posting-account'] = ispa.group(1)
-            # Establish Posting Host
+            # Establish Posting Host.
             isph = self.regex_ph.search(mem2str(art[Injection_Info]))
             if isph:
                 post['posting-host'] = isph.group(1)
-            # Establish injection host
+            # Establish Injection Host.
             isih = self.regex_hostname.match(mem2str(art[Injection_Info]))
             if isih:
                 post['injection-host'] = isih.group(0)
 
-        # posting-host might be obtainable from NNTP-Posting-Host
+        # posting-host might be obtainable from NNTP-Posting-Host.
         if 'posting-host' not in post and art[NNTP_Posting_Host] is not None:
             post['posting-host'] = mem2str(art[NNTP_Posting_Host])
 
         # If the injection-host wasn't found in Injection-Info, try the X-Trace
-        # header.  We only look for a hostname as the first field in X-Trace,
-        # otherwise it's regex hell.
+        # header field.  We only look for a hostname as the first field in
+        # X-Trace, otherwise it's regex hell.
         if 'injection-host' not in post and art[X_Trace] is not None:
             isih = self.regex_hostname.match(mem2str(art[X_Trace]))
             if isih:
                 post['injection-host'] = isih.group(0)
 
-        # Try to extract a hostname from the Path header
+        # Try to extract a hostname from the Path header field.
         if config.getboolean('hostnames', 'path_hostname'):
-            # First, check for a !.POSTED tag, as per RFC5537
+            # First, check for a !.POSTED tag, as per RFC5537.
             if 'injection-host' not in post and "!.POSTED" in mem2str(
                                                                   art[Path]
                                                               ):
@@ -633,7 +640,7 @@ class Filter:
                 pathhost = postsplit[0].split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
-            # Last resort, try the right-most entry in the Path header
+            # Last resort, try the right-most entry in the Path header field.
             if 'injection-host' not in post:
                 subhost = re.sub(self.regex_pathhost, '', mem2str(art[Path]))
                 pathhost = subhost.split("!")[-1]
@@ -650,7 +657,7 @@ class Filter:
                                   post['injection-host'], ihsub)
                     post['injection-host'] = ihsub
 
-        # Ascertain if the posting-host is meaningful
+        # Ascertain if the posting-host is meaningful.
         if 'posting-host' in post:
             isbad_ph = self.groups.regex.bad_ph.search(post['posting-host'])
             if isbad_ph:
@@ -664,10 +671,10 @@ class Filter:
                 post['injection-host'] == 'sewer.dizum.com'):
             dizum = True
 
-        # The host that fed us this article is first in the Path header.
+        # The host that fed us this article is first in the Path header field.
         post['feed-host'] = mem2str(art[Path]).split('!', 1)[0]
 
-        # Analyze the Newsgroups header
+        # Analyze the Newsgroups header field.
         self.groups.analyze(art[Newsgroups], art[Followup_To])
 
         # Is the source of the post considered local?
@@ -679,7 +686,7 @@ class Filter:
 
         # --- Everything below is accept / reject code ---
 
-        # Reject any messages that don't have a Message-ID
+        # Reject any messages that don't have a Message-ID.
         if art[Message_ID] is None:
             logging.warn("Wot no Message-ID!  Rejecting message because the "
                          "implications of accepting it are unpredictable.")
@@ -691,14 +698,14 @@ class Filter:
         if local:
             logging.debug("Local post: %s", mid)
 
-        # Control message handling
+        # Control message handling.
         if art[Control] is not None:
             ctrltype = mem2str(art[Control]).split(" ", 1)[0]
-            # Reject control messages with supersedes headers
+            # Reject control messages with a Supersedes header field.
             if art[Supersedes] is not None:
                 return self.reject(
                     art, post,
-                    'Control %s with Supersedes header' % ctrltype)
+                    'Control %s with Supersedes header field' % ctrltype)
             if (ctrltype == 'cancel' and
                     config.getboolean('control', 'reject_cancels')):
                 return self.reject(art, post, "Control cancel")
@@ -714,17 +721,17 @@ class Filter:
 
         # No followups is a reject as is more than 2 groups.
         if self.groups['futcount'] < 1 or self.groups['futcount'] > 2:
-            # Max-crosspost check
+            # Max-crosspost check.
             if self.groups['count'] > config.get('groups', 'max_crosspost'):
                 return self.reject(art, post, "Crosspost Limit Exceeded")
-            # Max low crosspost check
+            # Max low crosspost check.
             if self.groups['count'] > config.get('groups',
                                                  'max_low_crosspost'):
                 if self.groups['lowcp'] > 0:
                     return self.reject(art, post,
                                        "Crosspost Low Limit Exceeded")
 
-        # Lines check
+        # Lines check.
         if art[Lines] and int(art[Lines]) != int(art[__LINES__]):
             logmes = "Lines Mismatch: Header=%s, INN=%s, mid=%s"
             if art[User_Agent] is not None:
@@ -736,14 +743,14 @@ class Filter:
                 logging.debug(logmes % (mem2str(art[Lines]),
                                         str(art[__LINES__]), mid))
 
-        # Newsguy are evil sex spammers
+        # Newsguy are evil sex spammers.
         if ('newsguy.com' in mid and
                 config.getboolean('filters', 'newsguy') and
                 'sex_groups' in self.groups and
                 self.groups['sex_groups'] > 0):
             return self.reject(art, post, "Newsguy Sex")
 
-        # For some reason, this OS2 group has become kook central
+        # For some reason, this OS2 group has become kook central.
         if ('comp.os.os2.advocacy' in self.groups['groups'] and
                 self.groups['count'] > 1):
             return self.reject(art, post, "OS2 Crosspost")
@@ -751,7 +758,7 @@ class Filter:
                 'comp.os.os2.advocacy' in mem2str(art[Followup_To])):
             return self.reject(art, post, "OS2 Followup")
 
-        # Poor snipe is getting the Greg Hall treatment
+        # Poor snipe is getting the Greg Hall treatment.
         if 'injection-host' in post:
             if post['injection-host'].startswith(
                     "snipe.eternal-september.org"):
@@ -762,9 +769,9 @@ class Filter:
                         "snipeco" in post['from_email']):
                     return self.reject(art, post, "Snipe Forge")
 
-        # Compare headers against regex files
+        # Compare headers against regex files.
 
-        # Check if posting-host is whitelisted
+        # Check if posting-host is whitelisted.
         gph = False
         if('posting-host' in post and 'good_posthost' in self.etc_re):
             gph = self.etc_re['good_posthost'].search(post['posting-host'])
@@ -773,7 +780,7 @@ class Filter:
                              post['posting-host'],
                              mem2str(art[Message_ID]))
 
-        # Reject these posting-hosts
+        # Reject these posting-hosts.
         if ('posting-host' in post and not gph and
                 'bad_posting-host' not in post and
                 'bad_posthost' in self.etc_re):
@@ -783,7 +790,7 @@ class Filter:
                     art, post,
                     "Bad Posting-Host (%s)" % bph.group(0))
 
-        # Test posting-hosts that are not allowed to crosspost
+        # Test posting-hosts that are not allowed to crosspost.
         if ('posting-host' in post and not gph and
                 self.groups['count'] > 1 and
                 'bad_crosspost_host' in self.etc_re):
@@ -794,7 +801,7 @@ class Filter:
                     art, post,
                     "Bad Crosspost Host (%s)" % bph.group(0))
 
-        # Groups where crossposting is not allowed
+        # Groups where crossposting is not allowed.
         if (self.groups['count'] > 1 and not gph and
                 'bad_cp_groups' in self.etc_re):
             bcg = self.etc_re['bad_cp_groups'].search(mem2str(art[Newsgroups]))
@@ -827,7 +834,7 @@ class Filter:
                     art, post,
                     "Bad Dizum Group (%s)" % bgd.group(0))
 
-        # AUK bad crossposts
+        # AUK bad crossposts.
         #if self.groups['kooks'] > 0:
         #    if ('alt.free.newsservers' in self.groups['groups'] or
         #            'alt.privacy.anon-server' in self.groups['groups']):
@@ -840,7 +847,7 @@ class Filter:
                     art, post,
                     "Bad From (%s)" % bf_result.group(0))
 
-        # Bad subject checking (Currently only on Dizum posts)
+        # Bad subject checking (Currently only on Dizum posts).
         if dizum and 'bad_subject' in self.etc_re and not gph:
             bs_result = self.etc_re['bad_subject'].search(
                                                        mem2str(art[Subject])
@@ -857,9 +864,9 @@ class Filter:
                     art, post,
                     "Bad Body (%s)" % bb_result.group(0), "Bad Body")
 
-        # The following checks are for locally posted articles
+        # The following checks are for locally posted articles.
 
-        # Groups where crossposting is not allowed
+        # Groups where crossposting is not allowed.
         if (local and not gph and self.groups['count'] > 1 and
                 'local_bad_cp_groups' in self.etc_re):
             b = self.etc_re['local_bad_cp_groups'].search(
@@ -870,7 +877,7 @@ class Filter:
                     art, post,
                     "Local Bad Crosspost Group (%s)" % b.group(0))
 
-        # Local Bad From
+        # Local Bad From.
         if local and not gph and 'local_bad_from' in self.etc_re:
             reg = self.etc_re['local_bad_from']
             bf_result = reg.search(mem2str(art[From]))
@@ -879,7 +886,8 @@ class Filter:
                     art, post,
                     "Local Bad From (%s)" % bf_result.group(0),
                     "Local Reject")
-        # Local Bad Subject
+
+        # Local Bad Subject.
         if local and not gph and 'local_bad_subject' in self.etc_re:
             reg = self.etc_re['local_bad_subject']
             bs_result = reg.search(mem2str(art[Subject]))
@@ -888,7 +896,8 @@ class Filter:
                     art, post,
                     "Local Bad Subject (%s)" % bs_result.group(0),
                     "Local Reject")
-        # Local Bad Groups
+
+        # Local Bad Groups.
         if local and not gph and 'local_bad_groups' in self.etc_re:
             reg = self.etc_re['local_bad_groups']
             bg_result = reg.search(mem2str(art[Newsgroups]))
@@ -897,7 +906,7 @@ class Filter:
                     art, post,
                     "Local Bad Group (%s)" % bg_result.group(0))
 
-        # Local Bad Body
+        # Local Bad Body.
         if local and not gph and 'local_bad_body' in self.etc_re:
             reg = self.etc_re['local_bad_body']
             bb_result = reg.search(mem2str(art[__BODY__]))
@@ -907,12 +916,12 @@ class Filter:
                     "Local Bad Body (%s)" % bb_result.group(0),
                     "Local Reject")
 
-        # Misplaced binary check
+        # Misplaced binary check.
         if self.groups['bin_allowed_bool']:
-            # All groups in the post match bin_allowed groups
+            # All groups in the post match bin_allowed groups.
             isbin = False
         else:
-            # Potentially expensive check if article contains binary
+            # Potentially expensive check if article contains binary.
             isbin = self.binary.isbin(art)
         # Generic 'binary' means it looks binary-like but doesn't match any
         # known encoding method.
@@ -928,7 +937,7 @@ class Filter:
             return self.reject(
                 art, post, "Binary (%s)" % isbin)
 
-        # Misplaced HTML check
+        # Misplaced HTML check.
         if (not self.groups['html_allowed_bool'] and
                 config.getboolean('filters', 'reject_html') and
                 'content_type' in post):
@@ -940,16 +949,16 @@ class Filter:
                 else:
                     logging.debug('Multipart: %s' % mid)
 
-        # Symbol ratio test
+        # Symbol ratio test.
         symlen = len(self.regex_symbols.findall(mem2str(art[__BODY__])))
         if symlen > 100:
             return self.reject(art, post, "Symbols (%s)" % symlen)
 
-        # Start of EMP checks
+        # Start of EMP checks.
         if (not self.groups['emp_exclude_bool'] and
                 not self.groups['test_bool']):
             ngs = ','.join(self.groups['groups'])
-            # If a substring matches the Newsgroups header, use just that
+            # If a substring matches the Newsgroups header field, use just that
             # substring as EMP fodder where a Newsgroups name is normally used.
             for ngsub in self.ngsubs:
                 if ngsub in ngs:
@@ -964,7 +973,7 @@ class Filter:
                 fodder = post['posting-account']
             elif 'bad-posting-host' in post:
                 # If we can't trust the info in posting-host, use the
-                # injection-host. This is a worst-case scenario.
+                # injection-host.  This is a worst-case scenario.
                 if ('injection-host' in post and
                         config.getboolean('emp', 'ph_coarse')):
                     fodder = post['injection-host']
@@ -975,12 +984,12 @@ class Filter:
             else:
                 fodder = None
             if fodder:
-                # Beginning of PHN filters
+                # Beginning of PHN filters.
                 if 'moderated' in self.groups and self.groups['moderated']:
                     logging.debug("Bypassing PHN filter due to moderated "
                                   "group in distribution")
                 elif local:
-                    # Beginning of PHN_Local filter
+                    # Beginning of PHN_Local filter.
                     do_lphn = True
                     if self.groups['phn_exclude_bool']:
                             do_lphn = False
@@ -998,21 +1007,21 @@ class Filter:
                     if do_lphn and self.emp_lphn.add(fodder + ngs):
                         return self.reject(art, post, "EMP Local PHN Reject")
                 else:
-                    # Beginning of standard PHN filter
+                    # Beginning of standard PHN filter.
                     if self.groups['phn_exclude_bool']:
                         logging.debug("emp_phn exclude for: %s",
                                       mem2str(art[Newsgroups]))
                     elif self.emp_phn.add(fodder + ngs):
                         return self.reject(art, post, "EMP PHN Reject")
-                # Beginning of PHL filter
+                # Beginning of PHL filter.
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject(art, post, "EMP PHL Reject")
-            # Beginning of FSL filter
+            # Beginning of FSL filter.
             fsl = mem2str(art[From]) + mem2str(art[Subject]) \
                   + str(art[__LINES__])
             if self.emp_fsl.add(fsl):
                 return self.reject(art, post, "EMP FSL Reject")
-            # Beginning of IHN filter
+            # Beginning of IHN filter.
             if ('injection-host' in post and
                     'ihn_hosts' in self.etc_re and
                     not self.groups['ihn_exclude_bool']):
@@ -1034,7 +1043,7 @@ class Filter:
                          mem2str(art[Message_ID]), mem2str(art[From]),
                          mem2str(art[Newsgroups]))
             self.logart('Local Post', art, post, 'local_post')
-        # The article passed all checks. Return an empty string.
+        # The article passed all checks.  Return an empty string.
         return ""
 
     def addressParse(self, addr):
@@ -1094,7 +1103,7 @@ class Filter:
             maxlines = config.get('logging', 'logart_maxlines')
             loglines = 0
             for line in mem2str(art[__BODY__]).split('\n', 1000)[:-1]:
-                # Ignore quoted lines
+                # Ignore quoted lines.
                 if line.startswith(">"):
                     continue
                 line = line.replace('\r', '')
@@ -1114,7 +1123,7 @@ class Filter:
 
         """
         if startup:
-            logging.info("Performing startup tasks")
+            logging.info('Performing startup tasks')
         else:
             logging.info('Performing hourly tasks')
         self.emp_body.statlog()
@@ -1123,15 +1132,15 @@ class Filter:
         self.emp_phn.statlog()
         self.emp_lphn.statlog()
         self.emp_ihn.statlog()
-        # Reload logging directives
+        # Reload logging directives.
         self.log_rules = self.file2dict('log_rules')
         logging.info('Reloaded %s logging directives', len(self.log_rules))
-        # Reload Injection-Host substrings
+        # Reload Injection-Host substrings.
         self.ihsubs = self.file2list('ih_substrings')
         logging.info('Reloaded %s Injection-Host substrings', len(self.ihsubs))
         self.ngsubs = self.file2list('ng_emp_subst')
         logging.info('Reloaded %s Newsgroup substrings', len(self.ngsubs))
-        # Set up Regular Expressions
+        # Set up Regular Expressions.
         for fn in self.regex_files.keys():
             new_regex = self.regex_file(fn)
             if new_regex:
@@ -1177,7 +1186,7 @@ class Filter:
                 logging.info("%s: Regex file has been deleted", filename)
                 # The file has been deleted so delete the regex.
                 self.etc_re.pop(filename, None)
-                # Reset the last_modified date to zero
+                # Reset the last_modified date to zero.
                 self.regex_files[filename] = 0
             return False
         current_mod_stamp = os.path.getmtime(fqfn)
@@ -1186,9 +1195,9 @@ class Filter:
             logging.info('%s: File not modified so not recompiling',
                          filename)
             return False
-        # The file has been modified: Recompile the regex
+        # The file has been modified: recompile the regex.
         logging.info('%s: Recompiling Regular Expression.', filename)
-        # Reset the file's modstamp
+        # Reset the file's modstamp.
         self.regex_files[filename] = current_mod_stamp
         # Make a local datetime object for now, just to save setting now in
         # the coming loop.
@@ -1199,30 +1208,30 @@ class Filter:
             valid = self.regex_fmt.match(line)
             if valid:
                 try:
-                    # Is current time beyond that of the datestamp? If it is,
+                    # Is current time beyond that of the datestamp?  If it is,
                     # the entry is considered expired and processing moves to
                     # the next entry.
                     if n > dateobj(valid.group(2)):
                         continue
                 except ValueError:
-                    # If the timestamp is invalid, just ignore the entry
+                    # If the timestamp is invalid, just ignore the entry.
                     logging.warn("Invalid timestamp in %s. Line=%s",
                                  filename, line)
                     continue
                 # If processing gets here, the entry is a valid regex.
                 bad_items.append(valid.group(1))
             elif line.lstrip().startswith('#'):
-                # Don't do anything, it's a comment line
+                # Don't do anything, it's a comment line.
                 pass
             elif len(line.strip()) == 0:
-                # Blank lines are fine
+                # Blank lines are fine.
                 pass
             else:
                 logging.warn("Invalid line in %s: %s", filename, line)
         f.close()
         num_bad_items = len(bad_items)
         if num_bad_items == 0:
-            # No valid entires exist in the file.
+            # No valid entries exist in the file.
             logging.debug('%s: No valid entries found' % filename)
             return False
         regex = '|'.join(bad_items)
@@ -1242,17 +1251,19 @@ class Filter:
         f.close()
         valid = []
         for line in lines:
-            # Strip comments (including inline)
+            # Strip comments (including inline).
             content = line.split('#', 1)[0].strip()
-            # Ignore empty lines
+            # Ignore empty lines.
             if len(content) > 0:
                 valid.append(content)
         return valid
 
     def file2dict(self, filename, numeric=False):
-        """Read a file and split each line at the first space encountered. The
-        first element is the key, the rest is the content. If numeric is True
-        then only integer values will be acccepted."""
+        """Read a file and split each line at the first space encountered.
+        The first element is the key, the rest is the content.  If numeric
+        is True, then only integer values will be acccepted.
+
+        """
         d = {}
         for line in self.file2list(filename):
             valid = self.regex_fields.match(line)
@@ -1310,14 +1321,14 @@ class Groups:
         newsgroups = mem2str(newsgroups)
         if followupto:
             followupto = mem2str(followupto)
-        # Zero all dict items we'll use in this post
+        # Zero all dict items we'll use in this post.
         grp = dict((f, 0) for f in self.grps)
-        # This will become a list of newsgroups
+        # This will become a list of newsgroups.
         nglist = []
         for ng in newsgroups.lower().split(','):
-            # Strip whitespace from individual Newsgroups
+            # Strip whitespace from individual Newsgroups.
             ng = ng.strip()
-            # Populate a list of newsgroups after stripping spaces
+            # Populate a list of newsgroups after stripping spaces.
             nglist.append(ng)
             if self.regex.test.search(ng):
                 grp['test'] += 1
@@ -1357,13 +1368,13 @@ class Groups:
 
 class Regex:
     def __init__(self):
-        # Test groups
+        # Test groups.
         test = ['\.test(ing)?(?:$|\.)',
                 '^es\.pruebas',
                 '^borland\.public\.test2',
                 '^cern\.testnews']
         self.test = self.regex_compile(test)
-        # Binary groups
+        # Binary groups.
         bin_allowed = ['^bin[a.]', '\.bin[aei.]', '\.bin$', '^fur\.artwork',
                        '^alt\.anonymous\.messages$', '^de\.alt\.dateien',
                        '^rec\.games\.bolo$', '^comp\.security\.pgp\.test$',
@@ -1375,32 +1386,32 @@ class Regex:
         html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
                         '^mailing\.', '^gnus\.']
         self.html_allowed = self.regex_compile(html_allowed)
-        # Exclude from all EMP filters
+        # Exclude from all EMP filters.
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
                        '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.',
                        '^gnu\.', 'lists\.freebsd\.ports\.bugs']
         self.emp_exclude = self.regex_compile(emp_exclude)
-        # Exclude groups from IHN filter
+        # Exclude groups from IHN filter.
         ihn_exclude = ['^alt\.anonymous',
                        '^alt\.privacy',
                        '^alt\.prophecies\.nostradamus']
         self.ihn_exclude = self.regex_compile(ihn_exclude)
-        # Exclude groups from PHN filter
+        # Exclude groups from PHN filter.
         phn_exclude = ['^alt\.privacy\.']
         self.phn_exclude = self.regex_compile(phn_exclude)
-        # Bad posting-hosts
+        # Bad posting-hosts.
         bad_ph = ['newsguy\.com', 'tornevall\.net']
         self.bad_ph = self.regex_compile(bad_ph)
-        # Sex groups
+        # Sex groups.
         sex_groups = ['^alt\.sex']
         self.sex_groups = self.regex_compile(sex_groups)
-        # Kook groups
+        # Kook groups.
         kooks = ['^alt\.usenet\.kooks',
                  '^alt\.checkmate',
                  '^alt\.fan\.cyberchicken',
                  '^alt\.fan\.karl-malden\.nose']
         self.kooks = self.regex_compile(kooks)
-        # Low cross post groups
+        # Low cross post groups.
         lowcp = ['^alt\.free\.newsservers']
         self.lowcp = self.regex_compile(lowcp)
 
@@ -1417,17 +1428,17 @@ class EMP:
                  timedtrim=3600,
                  dofuzzy=False,
                  name=False):
-        # Statistics relating to this EMP instance
+        # Statistics relating to this EMP instance.
         if threshold > ceiling:
             raise ValueError('Threshold cannot exceed ceiling')
         # The hash table itself.  Keyed by MD5 hash and containing a hit
         # count.
         self.table = {}
-        # Attempt to restore a previous EMP dump
+        # Attempt to restore a previous EMP dump.
         self.restore(name)
         self.fuzzy_15char = re.compile('\S{15,}')
         self.fuzzy_notletters = re.compile('[^a-zA-Z]')
-        # Initialize some defaults
+        # Initialize some defaults.
         self.stats = {'name': name,
                       'nexttrim': future(secs=timedtrim),
                       'lasttrim': now(),
@@ -1454,9 +1465,9 @@ class EMP:
         """
         self.stats['processed'] += 1
         if self.stats['dofuzzy']:
-            # Strip long strings
+            # Strip long strings.
             content = re.sub(self.fuzzy_15char, '', content)
-            # Remove everything except a-zA-Z
+            # Remove everything except a-zA-Z.
             content = re.sub(self.fuzzy_notletters, '', content).lower()
 
         # Bail out if the byte length of the content isn't sufficient for
@@ -1563,7 +1574,7 @@ class EMP:
             logging.info("Restored %s records to %s", len(self.table), name)
         else:
             logging.debug("%s: Dump file does not exist.  Doing a clean "
-                          "initialzation.", dumpfile)
+                          "initialization.", dumpfile)
 
     def reset(self):
         """Reset counters for this emp filter.
@@ -1630,6 +1641,7 @@ From = intern("From")
 In_Reply_To = intern("In-Reply-To")
 Injection_Date = intern("Injection-Date")
 Injection_Info = intern("Injection-Info")
+Jabber_ID = intern("Jabber-ID")
 Keywords = intern("Keywords")
 Lines = intern("Lines")
 List_ID = intern("List-ID")
