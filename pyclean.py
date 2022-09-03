@@ -1037,13 +1037,13 @@ class Filter:
         for hdr in art.keys():
             if hdr == '__BODY__' or hdr == '__LINES__' or art[hdr] is None:
                 continue
-            f.write('%s: %s\n' % (hdr, art[hdr]))
+            f.write('%s: %s\n' % (hdr, str(art[hdr]).replace('\r', '')))
         for hdr in post.keys():
             f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
         if (not trim or
                 art[__LINES__] <= config.get('logging', 'logart_maxlines')):
-            f.write(art[__BODY__])
+            f.write(str(art[__BODY__]).replace('\r', ''))
         else:
             maxlines = config.get('logging', 'logart_maxlines')
             loglines = 0
@@ -1051,6 +1051,7 @@ class Filter:
                 # Ignore quoted lines
                 if line.startswith(">"):
                     continue
+                line = line.replace('\r', '')
                 f.write(line + "\n")
                 loglines += 1
                 if loglines >= maxlines:
