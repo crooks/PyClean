@@ -1293,7 +1293,7 @@ class Groups:
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
         count = len(nglist)
-        for ngelement in grp.keys():
+        for ngelement in list(grp.keys()):
             ngbool = '%s_bool' % ngelement
             grp[ngbool] = grp[ngelement] == count
         grp['groups'] = sorted(nglist)
@@ -1465,7 +1465,7 @@ class EMP:
         self.stats['oldsize'] = len(self.table)
         # Keep a running check of the largest count against a key.
         self.stats['high'] = 0
-        for h in self.table.keys():
+        for h in list(self.table.keys()):
             self.table[h] -= decrement
             if self.table[h] > self.stats['high']:
                 self.stats['high'] = self.table[h]
