@@ -404,8 +404,8 @@ class Binary:
         if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
         # Also avoid these costly checks where a References header is present.
-        skip_refs = ('References' in art and
-                     str(art['References']).startswith('<') and
+        skip_refs = (art[References] is not None and
+                     str(art[References]).startswith('<') and
                      config.getboolean('binary', 'fasttrack_references') and
                      int(art[__LINES__]) > 500)
         if skip_refs:
@@ -560,9 +560,9 @@ class Filter:
             self.midnight_events()
 
         # Attempt to split the From address into component parts
-        if 'From' in art:
+        if art[From] is not None:
             post['from_name'], \
-                post['from_email'] = self.addressParse(art['From'])
+                post['from_email'] = self.addressParse(art[From])
 
         if art[Content_Type] is not None:
             ct = self.regex_ct.match(art[Content_Type])
@@ -655,7 +655,7 @@ class Filter:
         # --- Everything below is accept / reject code ---
 
         # Reject any messages that don't have a Message-ID
-        if Message_ID not in art:
+        if art[Message_ID] is None:
             logging.warn("Wot no Message-ID!  Rejecting message because the "
                          "implications of accepting it are unpredictable.")
             return self.reject(art, post, "No Message-ID header")
@@ -948,9 +948,9 @@ class Filter:
                     do_lphn = True
                     if self.groups['phn_exclude_bool']:
                             do_lphn = False
-                    if (not do_lphn and art['References'] is None and
-                            'Subject' in art and
-                            str(art['Subject']).startswith("Re:")):
+                    if (not do_lphn and art[References] is None and
+                            art[Subject] is not None and
+                            str(art[Subject]).startswith("Re:")):
                         logging.info("emp_lphn: Exclude overridden - "
                                      "Subject Re but no Reference")
                         do_lphn = True
