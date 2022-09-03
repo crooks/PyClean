@@ -1600,8 +1600,9 @@ python_filter = InndFilter()
 try:
     INN.set_filter_hook(python_filter)
     INN.syslog('n', "pyclean successfully hooked into INN")
-except Exception as errmsg:
-    INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
+except Exception:  # Syntax valid in both Python 2.x and 3.x.
+    e = sys.exc_info()[1]
+    INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % e.args[0])
 
 # This looks weird, but creating and interning these strings should let us get
 # faster access to header keys (which innd also interns) by losing some strcmps
