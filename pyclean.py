@@ -36,7 +36,29 @@ try:
 except ImportError:
     pass
 
-# First, define some high-level date/time functions
+# Keep compatibility with both Python 2 and 3, as they handle encoding in
+# unicode strings differently.
+def mem2str(string):
+    if string is None:
+        return ''
+    if sys.version_info[0] > 2:
+        return string.tobytes().decode('utf-8', 'backslashreplace')
+    else:
+        return str(string)
+
+def decodedStr(string):
+    if sys.version_info[0] > 2:
+        return string.decode('utf-8', 'backslashreplace')
+    else:
+        return string
+
+def encodedStr(string):
+    if sys.version_info[0] > 2:
+        return string.encode('utf-8', 'backslashreplace')
+    else:
+        return string
+
+# Define some high-level date/time functions.
 def now():
     return datetime.datetime.utcnow()
     # return datetime.datetime.now()
@@ -389,11 +411,12 @@ class Binary:
 
         """
         # Ignore base64 encoded content.
-        if 'base64' in str(art[Content_Transfer_Encoding]).lower():
+        if (art[Content_Transfer_Encoding] is not None
+            and 'base64' in mem2str(art[Content_Transfer_Encoding]).lower()):
             return False
-        if self.regex_uuenc.search(art[__BODY__]):
+        if self.regex_uuenc.search(mem2str(art[__BODY__])):
             return 'uuEnc'
-        yenc = self.regex_yenc.search(art[__BODY__])
+        yenc = self.regex_yenc.search(mem2str(art[__BODY__]))
         if yenc:
             # Extract the matching line
             l = yenc.group(0)
@@ -404,8 +427,8 @@ class Binary:
         if int(art[__LINES__]) < config.getint('binary', 'lines_allowed'):
             return False
         # Also avoid these costly checks where a References header is present.
-        skip_refs = ('References' in art and
-                     str(art['References']).startswith('<') and
+        skip_refs = (art[References] is not None and
+                     mem2str(art[References]).startswith('<') and
                      config.getboolean('binary', 'fasttrack_references') and
                      int(art[__LINES__]) > 500)
         if skip_refs:
@@ -413,7 +436,7 @@ class Binary:
         # Base64 and suspect binary matching
         b64match = 0
         suspect = 0
-        for line in str(art[__BODY__]).split('\n'):
+        for line in mem2str(art[__BODY__]).split('\n'):
             skip_pgp = (line.startswith('-----BEGIN PGP')
                         and config.getboolean('binary', 'allow_pgp'))
             if skip_pgp:
@@ -560,15 +583,15 @@ class Filter:
             self.midnight_events()
 
         # Attempt to split the From address into component parts
-        if 'From' in art:
+        if art[From] is not None:
             post['from_name'], \
-                post['from_email'] = self.addressParse(art['From'])
+                post['from_email'] = self.addressParse(mem2str(art[From]))
 
         if art[Content_Type] is not None:
-            ct = self.regex_ct.match(art[Content_Type])
+            ct = self.regex_ct.match(mem2str(art[Content_Type]))
             if ct:
                 post['content_type'] = ct.group(1).lower()
-            ctcs = self.regex_ctcs.search(art[Content_Type])
+            ctcs = self.regex_ctcs.search(mem2str(art[Content_Type]))
             if ctcs:
                 post['charset'] = ctcs.group(1).lower()
 
@@ -576,41 +599,43 @@ class Filter:
         # posting-account
         if art[Injection_Info] is not None:
             # Establish Posting Account
-            ispa = self.regex_pa.search(art[Injection_Info])
+            ispa = self.regex_pa.search(mem2str(art[Injection_Info]))
             if ispa:
                 post['posting-account'] = ispa.group(1)
             # Establish Posting Host
-            isph = self.regex_ph.search(art[Injection_Info])
+            isph = self.regex_ph.search(mem2str(art[Injection_Info]))
             if isph:
                 post['posting-host'] = isph.group(1)
             # Establish injection host
-            isih = self.regex_hostname.match(art[Injection_Info])
+            isih = self.regex_hostname.match(mem2str(art[Injection_Info]))
             if isih:
                 post['injection-host'] = isih.group(0)
 
         # posting-host might be obtainable from NNTP-Posting-Host
         if 'posting-host' not in post and art[NNTP_Posting_Host] is not None:
-            post['posting-host'] = str(art[NNTP_Posting_Host])
+            post['posting-host'] = mem2str(art[NNTP_Posting_Host])
 
         # If the injection-host wasn't found in Injection-Info, try the X-Trace
         # header.  We only look for a hostname as the first field in X-Trace,
         # otherwise it's regex hell.
         if 'injection-host' not in post and art[X_Trace] is not None:
-            isih = self.regex_hostname.match(art[X_Trace])
+            isih = self.regex_hostname.match(mem2str(art[X_Trace]))
             if isih:
                 post['injection-host'] = isih.group(0)
 
         # Try to extract a hostname from the Path header
         if config.getboolean('hostnames', 'path_hostname'):
             # First, check for a !.POSTED tag, as per RFC5537
-            if 'injection-host' not in post and "!.POSTED" in str(art[Path]):
-                postsplit = str(art[Path]).split("!.POSTED", 1)
+            if 'injection-host' not in post and "!.POSTED" in mem2str(
+                                                                  art[Path]
+                                                              ):
+                postsplit = mem2str(art[Path]).split("!.POSTED", 1)
                 pathhost = postsplit[0].split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
             # Last resort, try the right-most entry in the Path header
             if 'injection-host' not in post:
-                subhost = re.sub(self.regex_pathhost, '', art[Path])
+                subhost = re.sub(self.regex_pathhost, '', mem2str(art[Path]))
                 pathhost = subhost.split("!")[-1]
                 if pathhost:
                     post['injection-host'] = pathhost
@@ -640,7 +665,7 @@ class Filter:
             dizum = True
 
         # The host that fed us this article is first in the Path header.
-        post['feed-host'] = str(art[Path]).split('!', 1)[0]
+        post['feed-host'] = mem2str(art[Path]).split('!', 1)[0]
 
         # Analyze the Newsgroups header
         self.groups.analyze(art[Newsgroups], art[Followup_To])
@@ -655,12 +680,12 @@ class Filter:
         # --- Everything below is accept / reject code ---
 
         # Reject any messages that don't have a Message-ID
-        if Message_ID not in art:
+        if art[Message_ID] is None:
             logging.warn("Wot no Message-ID!  Rejecting message because the "
                          "implications of accepting it are unpredictable.")
             return self.reject(art, post, "No Message-ID header")
         # We use Message-ID strings so much, it's useful to have a shortcut.
-        mid = str(art[Message_ID])
+        mid = mem2str(art[Message_ID])
 
         # Now we're convinced we have a MID, log it for local posts.
         if local:
@@ -668,7 +693,7 @@ class Filter:
 
         # Control message handling
         if art[Control] is not None:
-            ctrltype = str(art[Control]).split(" ", 1)[0]
+            ctrltype = mem2str(art[Control]).split(" ", 1)[0]
             # Reject control messages with supersedes headers
             if art[Supersedes] is not None:
                 return self.reject(
@@ -683,7 +708,8 @@ class Filter:
                     art, post,
                     "Redundant Control Type: %s" % ctrltype)
             else:
-                logging.info('Control: %s, mid=%s' % (art[Control], mid))
+                logging.info('Control: %s, mid=%s' % (mem2str(art[Control]),
+                                                      mid))
             return ''
 
         # No followups is a reject as is more than 2 groups.
@@ -703,10 +729,12 @@ class Filter:
             logmes = "Lines Mismatch: Header=%s, INN=%s, mid=%s"
             if art[User_Agent] is not None:
                 logmes += ", Agent=%s"
-                logging.debug(logmes % (art[Lines], art[__LINES__],
-                                        mid, art[User_Agent]))
+                logging.debug(logmes % (mem2str(art[Lines]),
+                                        str(art[__LINES__]),
+                                        mid, mem2str(art[User_Agent])))
             else:
-                logging.debug(logmes % (art[Lines], art[__LINES__], mid))
+                logging.debug(logmes % (mem2str(art[Lines]),
+                                        str(art[__LINES__]), mid))
 
         # Newsguy are evil sex spammers
         if ('newsguy.com' in mid and
@@ -720,7 +748,7 @@ class Filter:
                 self.groups['count'] > 1):
             return self.reject(art, post, "OS2 Crosspost")
         if (art[Followup_To] and
-                'comp.os.os2.advocacy' in str(art[Followup_To])):
+                'comp.os.os2.advocacy' in mem2str(art[Followup_To])):
             return self.reject(art, post, "OS2 Followup")
 
         # Poor snipe is getting the Greg Hall treatment
@@ -743,7 +771,7 @@ class Filter:
             if gph:
                 logging.info("Whitelisted posting. host=%s, msgid=%s",
                              post['posting-host'],
-                             art[Message_ID])
+                             mem2str(art[Message_ID]))
 
         # Reject these posting-hosts
         if ('posting-host' in post and not gph and
@@ -769,27 +797,31 @@ class Filter:
         # Groups where crossposting is not allowed
         if (self.groups['count'] > 1 and not gph and
                 'bad_cp_groups' in self.etc_re):
-            bcg = self.etc_re['bad_cp_groups'].search(art[Newsgroups])
+            bcg = self.etc_re['bad_cp_groups'].search(mem2str(art[Newsgroups]))
             if bcg:
                 return self.reject(
                     art, post,
                     "Bad Crosspost Group (%s)" % bcg.group(0))
 
         if 'log_from' in self.etc_re:
-            lf_result = self.etc_re['log_from'].search(art[From])
+            lf_result = self.etc_re['log_from'].search(mem2str(art[From]))
             if lf_result:
                 self.logart(lf_result.group(0), art, post, 'log_from',
                             trim=False)
 
         if 'bad_groups' in self.etc_re and not gph:
-            bg_result = self.etc_re['bad_groups'].search(art[Newsgroups])
+            bg_result = self.etc_re['bad_groups'].search(
+                                                      mem2str(art[Newsgroups])
+                                                  )
             if bg_result:
                 return self.reject(
                     art, post,
                     "Bad Group (%s)" % bg_result.group(0))
 
         if dizum and 'bad_groups_dizum' in self.etc_re:
-            bgd = self.etc_re['bad_groups_dizum'].search(art[Newsgroups])
+            bgd = self.etc_re['bad_groups_dizum'].search(
+                                                      mem2str(art[Newsgroups])
+                                                  )
             if bgd:
                 return self.reject(
                     art, post,
@@ -802,7 +834,7 @@ class Filter:
         #        return self.reject(art, post, "AUK Bad Crosspost")
 
         if 'bad_from' in self.etc_re and not gph:
-            bf_result = self.etc_re['bad_from'].search(art[From])
+            bf_result = self.etc_re['bad_from'].search(mem2str(art[From]))
             if bf_result:
                 return self.reject(
                     art, post,
@@ -810,14 +842,16 @@ class Filter:
 
         # Bad subject checking (Currently only on Dizum posts)
         if dizum and 'bad_subject' in self.etc_re and not gph:
-            bs_result = self.etc_re['bad_subject'].search(art[Subject])
+            bs_result = self.etc_re['bad_subject'].search(
+                                                       mem2str(art[Subject])
+                                                   )
             if bs_result:
                 return self.reject(
                     art, post,
                     "Bad Subject (%s)" % bs_result.group(0))
 
         if 'bad_body' in self.etc_re and not gph:
-            bb_result = self.etc_re['bad_body'].search(art[__BODY__])
+            bb_result = self.etc_re['bad_body'].search(mem2str(art[__BODY__]))
             if bb_result:
                 return self.reject(
                     art, post,
@@ -828,7 +862,9 @@ class Filter:
         # Groups where crossposting is not allowed
         if (local and not gph and self.groups['count'] > 1 and
                 'local_bad_cp_groups' in self.etc_re):
-            b = self.etc_re['local_bad_cp_groups'].search(art[Newsgroups])
+            b = self.etc_re['local_bad_cp_groups'].search(
+                                                       mem2str(art[Newsgroups])
+                                                   )
             if b:
                 return self.reject(
                     art, post,
@@ -837,7 +873,7 @@ class Filter:
         # Local Bad From
         if local and not gph and 'local_bad_from' in self.etc_re:
             reg = self.etc_re['local_bad_from']
-            bf_result = reg.search(art[From])
+            bf_result = reg.search(mem2str(art[From]))
             if bf_result:
                 return self.reject(
                     art, post,
@@ -846,7 +882,7 @@ class Filter:
         # Local Bad Subject
         if local and not gph and 'local_bad_subject' in self.etc_re:
             reg = self.etc_re['local_bad_subject']
-            bs_result = reg.search(art[Subject])
+            bs_result = reg.search(mem2str(art[Subject]))
             if bs_result:
                 return self.reject(
                     art, post,
@@ -855,7 +891,7 @@ class Filter:
         # Local Bad Groups
         if local and not gph and 'local_bad_groups' in self.etc_re:
             reg = self.etc_re['local_bad_groups']
-            bg_result = reg.search(art[Newsgroups])
+            bg_result = reg.search(mem2str(art[Newsgroups]))
             if bg_result:
                 return self.reject(
                     art, post,
@@ -864,7 +900,7 @@ class Filter:
         # Local Bad Body
         if local and not gph and 'local_bad_body' in self.etc_re:
             reg = self.etc_re['local_bad_body']
-            bb_result = reg.search(art[__BODY__])
+            bb_result = reg.search(mem2str(art[__BODY__]))
             if bb_result:
                 return self.reject(
                     art, post,
@@ -905,7 +941,7 @@ class Filter:
                     logging.debug('Multipart: %s' % mid)
 
         # Symbol ratio test
-        symlen = len(self.regex_symbols.findall(art[__BODY__]))
+        symlen = len(self.regex_symbols.findall(mem2str(art[__BODY__])))
         if symlen > 100:
             return self.reject(art, post, "Symbols (%s)" % symlen)
 
@@ -948,14 +984,14 @@ class Filter:
                     do_lphn = True
                     if self.groups['phn_exclude_bool']:
                             do_lphn = False
-                    if (not do_lphn and art['References'] is None and
-                            'Subject' in art and
-                            str(art['Subject']).startswith("Re:")):
+                    if (not do_lphn and art[References] is None and
+                            art[Subject] is not None and
+                            mem2str(art[Subject]).startswith("Re:")):
                         logging.info("emp_lphn: Exclude overridden - "
                                      "Subject Re but no Reference")
                         do_lphn = True
                     if (not do_lphn and
-                            self.regex_crspace.search(art[__BODY__])):
+                            self.regex_crspace.search(mem2str(art[__BODY__]))):
                         logging.info("emp_lphn: Exclude overridden - "
                                      "Carriage Return starts line")
                         do_lphn = True
@@ -965,14 +1001,15 @@ class Filter:
                     # Beginning of standard PHN filter
                     if self.groups['phn_exclude_bool']:
                         logging.debug("emp_phn exclude for: %s",
-                                      art['Newsgroups'])
+                                      mem2str(art[Newsgroups]))
                     elif self.emp_phn.add(fodder + ngs):
                         return self.reject(art, post, "EMP PHN Reject")
                 # Beginning of PHL filter
                 if self.emp_phl.add(fodder + str(art[__LINES__])):
                     return self.reject(art, post, "EMP PHL Reject")
             # Beginning of FSL filter
-            fsl = str(art[From]) + str(art[Subject]) + str(art[__LINES__])
+            fsl = mem2str(art[From]) + mem2str(art[Subject]) \
+                  + str(art[__LINES__])
             if self.emp_fsl.add(fsl):
                 return self.reject(art, post, "EMP FSL Reject")
             # Beginning of IHN filter
@@ -988,13 +1025,14 @@ class Filter:
             # Beginning of EMP Body filter.  Do this last, it's most
             # expensive in terms of processing.
             if art[__BODY__] is not None:
-                if self.emp_body.add(art[__BODY__]):
+                if self.emp_body.add(mem2str(art[__BODY__])):
                     return self.reject(art, post, "EMP Body Reject")
 
         if local:
             # All tests passed.  Log the locally posted message.
             logging.info("post: mid=%s, from=%s, groups=%s",
-                         art[Message_ID], art[From], art[Newsgroups])
+                         mem2str(art[Message_ID]), mem2str(art[From]),
+                         mem2str(art[Newsgroups]))
             self.logart('Local Post', art, post, 'local_post')
         # The article passed all checks. Return an empty string.
         return ""
@@ -1008,7 +1046,8 @@ class Filter:
             if reason.startswith(logrule):
                 self.logart(reason, art, post, self.log_rules[logrule])
                 break
-        logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+        logging.info("reject: mid=%s, reason=%s" % (mem2str(art[Message_ID]),
+                                                    reason))
         return reason
 
     def reject(self, art, post, reason, short_reason=None):
@@ -1019,10 +1058,11 @@ class Filter:
                 rulehit = True
                 break
         if rulehit:
-            logging.info("reject: mid=%s, reason=%s" % (art[Message_ID], reason))
+            logging.info("reject: mid=%s, reason=%s" % (
+                             mem2str(art[Message_ID]), reason))
         else:
             msg = "reject: No matched logging rule: mid={}, reason={}"
-            logging.warn(msg.format(art[Message_ID], reason))
+            logging.warn(msg.format(mem2str(art[Message_ID]), reason))
         if short_reason is None:
             # Sometimes we don't want to provide the source with a detailed
             # reason of why a message was rejected.  They could then just
@@ -1031,26 +1071,33 @@ class Filter:
         return short_reason
 
     def logart(self, reason, art, post, filename, trim=True):
-        f = open(os.path.join(config.get('paths', 'logart'), filename), 'a')
+        fullname = os.path.join(config.get('paths', 'logart'), filename)
+        if sys.version_info[0] > 2:
+            f = open(fullname, 'a', encoding='utf-8',
+                     errors='backslashreplace')
+        else:
+            f = open(fullname, 'a')
         f.write('From foo@bar Thu Jan  1 00:00:01 1970\n')
         f.write('Info: %s\n' % reason)
         for hdr in art.keys():
             if hdr == '__BODY__' or hdr == '__LINES__' or art[hdr] is None:
                 continue
-            f.write('%s: %s\n' % (hdr, art[hdr]))
+            f.write('%s: %s\n' % (hdr, mem2str(art[hdr]).replace('\r', '')))
         for hdr in post.keys():
             f.write('%s: %s\n' % (hdr, post[hdr]))
         f.write('\n')
         if (not trim or
-                art[__LINES__] <= config.get('logging', 'logart_maxlines')):
-            f.write(art[__BODY__])
+                int(art[__LINES__]) <= config.get('logging',
+                                                  'logart_maxlines')):
+            f.write(mem2str(art[__BODY__]).replace('\r', ''))
         else:
             maxlines = config.get('logging', 'logart_maxlines')
             loglines = 0
-            for line in str(art[__BODY__]).split('\n', 1000)[:-1]:
+            for line in mem2str(art[__BODY__]).split('\n', 1000)[:-1]:
                 # Ignore quoted lines
                 if line.startswith(">"):
                     continue
+                line = line.replace('\r', '')
                 f.write(line + "\n")
                 loglines += 1
                 if loglines >= maxlines:
@@ -1260,11 +1307,14 @@ class Groups:
         return False
 
     def analyze(self, newsgroups, followupto):
+        newsgroups = mem2str(newsgroups)
+        if followupto:
+            followupto = mem2str(followupto)
         # Zero all dict items we'll use in this post
         grp = dict((f, 0) for f in self.grps)
         # This will become a list of newsgroups
         nglist = []
-        for ng in str(newsgroups).lower().split(','):
+        for ng in newsgroups.lower().split(','):
             # Strip whitespace from individual Newsgroups
             ng = ng.strip()
             # Populate a list of newsgroups after stripping spaces
@@ -1292,7 +1342,7 @@ class Groups:
         # Not all bools will be meaningful but it's easier to create them
         # generically then specifically.
         count = len(nglist)
-        for ngelement in grp.keys():
+        for ngelement in list(grp.keys()):
             ngbool = '%s_bool' % ngelement
             grp[ngbool] = grp[ngelement] == count
         grp['groups'] = sorted(nglist)
@@ -1300,7 +1350,7 @@ class Groups:
         # Create a list of Followup-To groups and count them.
         grp['futcount'] = 0
         if followupto is not None:
-            futlist = str(followupto).lower().split(',')
+            futlist = followupto.lower().split(',')
             grp['futcount'] = len(futlist)
         self.grp = grp
 
@@ -1435,7 +1485,7 @@ class EMP:
 
         # MD5 is weak in cryptographic terms, but do I care for the purpose
         # of EMP collision checking?  Obviously not or I'd use something else.
-        h = md5(content).digest()
+        h = md5(encodedStr(content)).digest()
         if h in self.table:
             # When the ceiling is reached, stop incrementing the count.
             if self.table[h] < self.stats['ceiling']:
@@ -1464,7 +1514,7 @@ class EMP:
         self.stats['oldsize'] = len(self.table)
         # Keep a running check of the largest count against a key.
         self.stats['high'] = 0
-        for h in self.table.keys():
+        for h in list(self.table.keys()):
             self.table[h] -= decrement
             if self.table[h] > self.stats['high']:
                 self.stats['high'] = self.table[h]
@@ -1494,7 +1544,7 @@ class EMP:
                                 self.stats['name'] + ".db")
         dump = shelve.open(dumpfile, flag='n')
         for k in self.table:
-            dump[k] = self.table[k]
+            dump[decodedStr(k)] = self.table[k]
         dump.close()
 
     def restore(self, name):
@@ -1550,8 +1600,9 @@ python_filter = InndFilter()
 try:
     INN.set_filter_hook(python_filter)
     INN.syslog('n', "pyclean successfully hooked into INN")
-except Exception as errmsg:
-    INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % errmsg[0])
+except Exception:  # Syntax valid in both Python 2.x and 3.x.
+    e = sys.exc_info()[1]
+    INN.syslog('e', "Cannot obtain INN hook for pyclean: %s" % e.args[0])
 
 # This looks weird, but creating and interning these strings should let us get
 # faster access to header keys (which innd also interns) by losing some strcmps
