@@ -1383,7 +1383,7 @@ class Regex:
                        '^linux\.', '^lucky\.freebsd', '^gnus\.',
                        '\.lists\.freebsd\.']
         self.bin_allowed = self.regex_compile(bin_allowed)
-        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane', 'microsoft',
+        html_allowed = ['^pgsql\.', '^relcom\.', '^gmane\.', '^microsoft\.',
                         '^mailing\.', '^gnus\.']
         self.html_allowed = self.regex_compile(html_allowed)
         # Exclude from all EMP filters.
@@ -1397,7 +1397,7 @@ class Regex:
                        '^alt\.prophecies\.nostradamus']
         self.ihn_exclude = self.regex_compile(ihn_exclude)
         # Exclude groups from PHN filter.
-        phn_exclude = ['^alt\.privacy\.']
+        phn_exclude = ['^alt\.privacy\.', '^news\.lists\.filters']
         self.phn_exclude = self.regex_compile(phn_exclude)
         # Bad posting-hosts.
         bad_ph = ['newsguy\.com', 'tornevall\.net']
