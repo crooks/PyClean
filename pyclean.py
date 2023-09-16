@@ -1389,7 +1389,8 @@ class Regex:
         # Exclude from all EMP filters.
         emp_exclude = ['^alt\.anonymous\.messages', '^free\.', '^local\.',
                        '^relcom\.', '^mailing\.', '^fa\.', '\.cvs\.',
-                       '^gnu\.', 'lists\.freebsd\.ports\.bugs']
+                       '^gnu\.', 'lists\.freebsd\.ports\.bugs',
+                       '^news\.lists\.filters']
         self.emp_exclude = self.regex_compile(emp_exclude)
         # Exclude groups from IHN filter.
         ihn_exclude = ['^alt\.anonymous',
