@@ -1205,41 +1205,45 @@ class Filter:
         n = now()
         f = open(fqfn, 'r')
         for line in f:
+            if len(line.strip()) == 0:
+                # Ignore blank lines
+                continue
+            if line.lstrip().startswith('#'):
+                # Ignore comments
+                continue
             valid = self.regex_fmt.match(line)
-            if valid:
-                try:
-                    # Is current time beyond that of the datestamp?  If it is,
-                    # the entry is considered expired and processing moves to
-                    # the next entry.
-                    if n > dateobj(valid.group(2)):
-                        continue
-                except ValueError:
-                    # If the timestamp is invalid, just ignore the entry.
-                    logging.warn("Invalid timestamp in %s. Line=%s",
-                                 filename, line)
+            if not valid:
+                logging.warn("{}: Invalid line: {}".format(filename, line))
+                continue
+            try:
+                expire = dateobj(valid.group(2))
+            except ValueError:
+                # Invalid expiry timestamp
+                logging.warn("{}: Invalid timestamp in: {}".format(filename, line))
+                continue
+            # Is current time beyond that of the datestamp?  If it is, the
+            # entry is considered expired.
+            if n > expire:
+                    logging.debug("{}: Expired entry: {}".format(filename, valid.group(1)))
                     continue
-                # If processing gets here, the entry is a valid regex.
-                bad_items.append(valid.group(1))
-            elif line.lstrip().startswith('#'):
-                # Don't do anything, it's a comment line.
-                pass
-            elif len(line.strip()) == 0:
-                # Blank lines are fine.
-                pass
-            else:
-                logging.warn("Invalid line in %s: %s", filename, line)
+            # If processing gets here, the entry is a valid, unexpired regex.
+            bad_items.append(valid.group(1))
         f.close()
         num_bad_items = len(bad_items)
         if num_bad_items == 0:
             # No valid entries exist in the file.
-            logging.debug('%s: No valid entries found' % filename)
+            logging.debug("{}: No valid entries found".format(filename))
             return False
-        regex = '|'.join(bad_items)
-        # This should never happen but best to check as || will match
-        # everything.
-        regex = regex.replace('||', '|')
-        logging.info("Compiled %s rules from %s", num_bad_items, filename)
-        return re.compile(regex)
+        regex_string = '|'.join(bad_items)
+        # This should never happen but best to check as || will match everything.
+        regex_string = regex_string.replace('||', '|')
+        try:
+            regex = re.compile(regex_string)
+        except re.error as e:
+            logging.warn("{}: Regular Expression compilation failed with: {}".format(filename, e))
+            return False
+        logging.info("{}: Compiled {} rules".format(filename, num_bad_items))
+        return regex
 
     def file2list(self, filename):
         fqfn = os.path.join(config.get('paths', 'etc'), filename)
@@ -1483,7 +1487,7 @@ class EMP:
             secs_since_lasttrim = (n - self.stats['lasttrim']).seconds
             decrement = int(secs_since_lasttrim / self.stats['timedtrim'])
             logmes = "%s: Trim decrement factor=%s"
-            logging.debug(logmes % (self.stats['name'], decrement))
+            logging.debug("{}: Trim decrement factor={}".format(self.stats['name'], decrement))
             if decrement > 0:
                 self._trim(decrement)
             else:
