@@ -1038,6 +1038,7 @@ class Filter:
                     return self.reject(art, post, "EMP Body Reject")
 
         if local:
+            ng_ascii = mem2str(art[Newsgroups])
             # All tests passed.  Log the locally posted message.
             logging.info("post: mid=%s, from=%s, groups=%s",
                          mem2str(art[Message_ID]), mem2str(art[From]),
@@ -1606,6 +1607,7 @@ if 'python_filter' not in dir():
         os.path.join(config.get('paths', 'log'), 'pyclean.log'),
         when='midnight',
         interval=1,
+        encoding='utf8',
         backupCount=config.getint('logging', 'retain'))
     logfile.setLevel(loglevels[config.get('logging', 'level')])
     logfile.setFormatter(logging.Formatter(logfmt, datefmt=datefmt))
